@@ -69,7 +69,11 @@ class Device {
 
     enum BuiltinAction { NO_ACTION, REBOOT, APPLY_UPDATE,
                          WIPE_DATA, WIPE_CACHE, WIPE_MEDIA,
-                         REBOOT_BOOTLOADER, SHUTDOWN, READ_RECOVERY_LASTLOG };
+                         REBOOT_BOOTLOADER, SHUTDOWN, READ_RECOVERY_LASTLOG,
+			 ACTION_MODE_UBUNTU, ACTION_MODE_ANDROID, WIPE_DATA_UBUNTU,
+			 REPLACE_SYSTEM, INSTALL_UBUNTU_ZIP, INSTALL_UBUNTU_ROOTSTOCK, GO_BACK};
+
+    enum Mode { MODE_MENU, MODE_UBUNTU, MODE_ANDROID };
 
     // Perform a recovery action selected from the menu.
     // 'menu_position' will be the item number of the selected menu
@@ -80,6 +84,7 @@ class Device {
     // builtin actions, you can just return the corresponding enum
     // value.  If it is an action specific to your device, you
     // actually perform it here and return NO_ACTION.
+    virtual BuiltinAction InvokeMenuItem(int menu_position, Device::Mode) = 0;
     virtual BuiltinAction InvokeMenuItem(int menu_position) = 0;
 
     static const int kNoAction = -1;
@@ -109,6 +114,7 @@ class Device {
     // Return the list of menu items (an array of strings,
     // NULL-terminated).  The menu_position passed to InvokeMenuItem
     // will correspond to the indexes into this array.
+    virtual const char* const* GetMenuItems(Device::Mode) = 0;
     virtual const char* const* GetMenuItems() = 0;
 };
 

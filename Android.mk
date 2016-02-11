@@ -95,7 +95,8 @@ LOCAL_STATIC_LIBRARIES := \
     libm \
     libc \
     libext2_blkid \
-    libext2_uuid
+    libext2_uuid \
+    libcrecovery
 
 # OEMLOCK support requires a device specific liboemlock be supplied.
 # See comments in recovery.cpp for the API.
@@ -144,6 +145,7 @@ endif
 LOCAL_LDFLAGS += -Wl,--no-fatal-warnings
 
 LOCAL_C_INCLUDES += system/extras/ext4_utils
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_C_INCLUDES += external/openssl/include
 
 # Symlinks
@@ -253,10 +255,51 @@ include $(BUILD_EXECUTABLE)
 # make_ext4fs
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmake_ext4fs_static
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Dmain=make_ext4fs_main
 LOCAL_SRC_FILES := ../../system/extras/ext4_utils/make_ext4fs_main.c
 include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := system-image-upgrader
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := replace-system
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := install-system
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := archive-master.tar.xz
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := RECOVERY_ETC
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
+LOCAL_SRC_FILES := archive-master.tar.xz
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := archive-master.tar.xz.asc
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := RECOVERY_ETC
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
+LOCAL_SRC_FILES := archive-master.tar.xz.asc
+include $(BUILD_PREBUILT)
 
 # Minizip static library
 include $(CLEAR_VARS)
@@ -264,6 +307,7 @@ LOCAL_MODULE := libminizip_static
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Dmain=minizip_main -D__ANDROID__ -DIOAPI_NO_64
 LOCAL_C_INCLUDES := external/zlib
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_SRC_FILES := \
     ../../external/zlib/src/contrib/minizip/ioapi.c \
     ../../external/zlib/src/contrib/minizip/minizip.c \
@@ -320,6 +364,8 @@ include $(LOCAL_PATH)/minui/Android.mk \
     $(LOCAL_PATH)/uncrypt/Android.mk \
     $(LOCAL_PATH)/updater/Android.mk \
     $(LOCAL_PATH)/applypatch/Android.mk \
+    $(LOCAL_PATH)/libcrecovery/Android.mk \
     $(LOCAL_PATH)/voldclient/Android.mk
+
 
 endif

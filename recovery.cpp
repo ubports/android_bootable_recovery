@@ -47,6 +47,7 @@
 
 #include "adb_install.h"
 extern "C" {
+#include "libcrecovery/common.h"
 #include "minadbd/adb.h"
 #include "fuse_sideload.h"
 #include "fuse_sdcard_provider.h"
@@ -91,11 +92,13 @@ static OemLockOp oem_lock = OEM_LOCK_NONE;
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
   { "update_package", required_argument, NULL, 'u' },
+  { "user_data_update_package", required_argument, NULL, 'd' },
   { "headless", no_argument, NULL, 'h' },
   { "wipe_data", no_argument, NULL, 'w' },
   { "wipe_cache", no_argument, NULL, 'c' },
   { "wipe_media", no_argument, NULL, 'm' },
   { "show_text", no_argument, NULL, 't' },
+  { "update-ubuntu", no_argument, NULL, 'v' },
   { "just_exit", no_argument, NULL, 'x' },
   { "locale", required_argument, NULL, 'l' },
   { "stages", required_argument, NULL, 'g' },
@@ -107,6 +110,11 @@ static const struct option OPTIONS[] = {
 
 #define LAST_LOG_FILE "/cache/recovery/last_log"
 
+static const char *UBUNTU_COMMAND_FILE = "/cache/recovery/ubuntu_command";
+static const char *UBUNTU_ARGUMENT = "--update-ubuntu";
+static const char *UBUNTU_UPDATE_SCRIPT = "/sbin/system-image-upgrader";
+static const char *AUTODEPLOY_PACKAGE_FILE = "/sdcard/autodeploy.zip";
+static const char *AUTODEPLOY_PACKAGE_FILE_MULTI = "/sdcard/0/autodeploy.zip";
 static const char *CACHE_LOG_DIR = "/cache/recovery";
 static const char *COMMAND_FILE = "/cache/recovery/command";
 static const char *INTENT_FILE = "/cache/recovery/intent";
@@ -266,6 +274,23 @@ get_args(int *argc, char ***argv) {
             LOGI("Got arguments from boot message\n");
         } else if (boot.recovery[0] != 0 && boot.recovery[0] != 255) {
             LOGE("Bad boot message\n\"%.20s\"\n", boot.recovery);
+        }
+    }
+    
+        // ----if that doesn't work, try Ubuntu command file
+    if (*argc <= 1) {
+        FILE *fp = fopen_path(UBUNTU_COMMAND_FILE, "r");
+        if (fp != NULL) {
+            // there is Ubuntu command file, use it
+            // there is no need to read file content for now
+            check_and_fclose(fp, UBUNTU_COMMAND_FILE);
+            char *argv0 = (*argv)[0];
+            *argv = (char **) malloc(sizeof(char *) * MAX_ARGS);
+            // store arguments
+            (*argv)[0] = argv0;  // use the same program name
+            (*argv)[1] = (char *)UBUNTU_ARGUMENT;
+            *argc = 2;
+            LOGI("Got arguments from %s\n", UBUNTU_COMMAND_FILE);
         }
     }
 
@@ -559,7 +584,7 @@ prepend_title(const char* const* headers) {
 
     const char** new_headers = (const char**)malloc((count+1) * sizeof(char*));
     const char** h = new_headers;
-    *(h++) = "CyanogenMod Simple recovery <" EXPAND(RECOVERY_API_VERSION) "e>";
+    *(h++) = "Ubports Simple recovery <" EXPAND(RECOVERY_API_VERSION) "e>";
     *(h++) = recovery_version;
     *(h++) = "";
     for (p = headers; *p; ++p, ++h) *h = *p;
@@ -656,7 +681,7 @@ static int compare_string(const void* a, const void* b) {
 
 // Returns a malloc'd path, or NULL.
 static char*
-browse_directory(const char* path, Device* device) {
+browse_directory(const char* path, Device* device, char* type) {
     ensure_path_mounted(path);
 
     const char* MENU_HEADERS[] = { "Choose a package to install:",
@@ -701,7 +726,7 @@ browse_directory(const char* path, Device* device) {
             ++d_size;
         } else if (de->d_type == DT_REG &&
                    name_len >= 4 &&
-                   strncasecmp(de->d_name + (name_len-4), ".zip", 4) == 0) {
+                   strncasecmp(de->d_name + (name_len-4), type, 4) == 0) {
             if (z_size >= z_alloc) {
                 z_alloc *= 2;
                 zips = (char**)realloc(zips, z_alloc * sizeof(char*));
@@ -746,7 +771,7 @@ browse_directory(const char* path, Device* device) {
         if (item[item_len-1] == '/') {
             // recurse down into a subdirectory
             new_path[strlen(new_path)-1] = '\0';  // truncate the trailing '/'
-            result = browse_directory(new_path, device);
+            result = browse_directory(new_path, device, type);
             if (result) break;
         } else {
             // selected a zip file: return the malloc'd path to the caller.
@@ -761,6 +786,11 @@ browse_directory(const char* path, Device* device) {
     free(headers);
 
     return result;
+}
+
+static char*
+browse_directory(const char* path, Device* device) {
+	return browse_directory(path, device, ".zip");
 }
 
 static void
@@ -961,6 +991,111 @@ static int enter_sideload_mode(int* wipe_cache, Device* device) {
     return status;
 }
 
+static int 
+replace_system(Device* device){
+		static const char* headers[] = { "Replace System", "", NULL };
+		int status = INSTALL_ERROR;
+		__system("mount /data");
+		char* path = browse_directory("/data", device, ".img");
+		if (path != NULL){
+			ui->Print("\n-- Replacing Ubuntu android System.img... ");
+			ui->ClearLog();
+			ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+			char tmp[PATH_MAX];
+			sprintf(tmp, "replace-system %s", path);
+			__system(tmp);
+			ui->Print("\n-- Replace Ubuntu android complete");
+			status = INSTALL_SUCCESS;
+		}
+		return status;
+}
+
+static int 
+install_ubuntu(Device* device){
+		static const char* headers[] = { "Install ubuntu system", "", NULL };
+		int status = INSTALL_ERROR;
+		__system("mount /data");
+		const char* items[] = { " Choose preinstalled rootfs",
+								"Go back",
+                                NULL };
+        int item = get_menu_selection(NULL, items, 1, 0, device);
+        if (item != 0) return status;
+        char* rootfs = browse_directory("/data", device, "r.gz");
+        
+        const char* items2[] = { " Choose android system.img",
+								"Go back",
+                                NULL };
+        int item2 = get_menu_selection(NULL, items2, 1, 0, device);
+        if (item2 != 0) return status;
+		char* img = browse_directory("/data", device, ".img");
+		
+		if (rootfs != NULL && img != NULL){
+			ui->Print("\n-- Installing ubuntu system... ");
+			ui->ClearLog();
+			
+			ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+			char tmp[PATH_MAX];
+			sprintf(tmp, "install-system pre %s %s", rootfs, img);
+			__system(tmp);
+			ui->Print("\n-- Install ubuntu complete");
+			status = INSTALL_SUCCESS;
+		}
+		return status;
+		
+}
+
+static int 
+install_ubuntu_zip(Device* device){
+		static const char* headers[] = { "Install ubuntu system", "", NULL };
+		int status = INSTALL_ERROR;
+		__system("mount /data");
+		char* path = browse_directory("/data", device);
+		if (path != NULL){
+			ui->Print("\n-- Installing ubuntu system... ");
+			ui->ClearLog();
+			ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+			char tmp[PATH_MAX];
+			sprintf(tmp, "install-system zip %s", path);
+			__system(tmp);
+			ui->Print("\n-- Install ubuntu complete");
+			status = INSTALL_SUCCESS;
+		}
+		return status;
+}
+
+static void
+wipe_data_ubuntu(Device* device) {
+
+	static const char** title_headers = NULL;
+
+	if (title_headers == NULL) {
+		const char* headers[] = { "Confirm wipe of all user data?",
+								  "  THIS CAN NOT BE UNDONE.",
+								  "",
+								  NULL };
+		title_headers = prepend_title((const char**)headers);
+	}
+
+	const char* items[] = { " No",
+							" No",
+							" Yes -- delete all user data now",   // [7]
+							" No",
+							NULL };
+
+	int chosen_item = get_menu_selection(title_headers, items, 1, 0, device);
+	if (chosen_item != 2) {
+		return;
+	}
+    
+
+    ui->Print("\n-- Wiping ubuntu data...\n");
+    __system("mount /data");
+    __system("rm -r /data/system-data");
+    __system("rm -r /data/user-data");
+    erase_volume("/cache");
+    ui->Print("Data wipe complete.\n");
+}
+
 static int
 show_apply_update_menu(Device* device) {
     static const char* headers[] = { "Apply update", "", NULL };
@@ -1048,11 +1183,11 @@ int ui_root_menu = 0;
 // means to take the default, which is to reboot or shutdown depending
 // on if the --shutdown_after flag was passed to recovery.
 static Device::BuiltinAction
-prompt_and_wait(Device* device, int status) {
+prompt_and_wait(Device* device, int status, Device::Mode mode) {
     const char* const* headers = prepend_title(device->GetMenuHeaders());
-
+	finish_recovery(NULL);
     for (;;) {
-        finish_recovery(NULL);
+        
         ui_root_menu = 1;
         switch (status) {
             case INSTALL_SUCCESS:
@@ -1066,13 +1201,13 @@ prompt_and_wait(Device* device, int status) {
         }
         ui->SetProgressType(RecoveryUI::EMPTY);
 
-        int chosen_item = get_menu_selection(headers, device->GetMenuItems(), 0, 0, device);
+        int chosen_item = get_menu_selection(headers, device->GetMenuItems(mode), 0, 0, device);
         ui_root_menu = 0;
 
         // device-specific code may take some action here.  It may
         // return one of the core actions handled in the switch
         // statement below.
-        Device::BuiltinAction chosen_action = device->InvokeMenuItem(chosen_item);
+        Device::BuiltinAction chosen_action = device->InvokeMenuItem(chosen_item, mode);
 
         int wipe_cache = 0;
 
@@ -1113,6 +1248,38 @@ prompt_and_wait(Device* device, int status) {
                 case Device::READ_RECOVERY_LASTLOG:
                     choose_recovery_file(device);
                     break;
+                    
+                case Device::ACTION_MODE_UBUNTU:
+					mode = Device::MODE_UBUNTU;
+					status = 0;
+					break;
+					
+				case Device::ACTION_MODE_ANDROID:
+					mode = Device::MODE_ANDROID;
+					status = 0;
+					break;
+					
+				case Device::GO_BACK:
+					mode = Device::MODE_MENU;
+					status = 0;
+					break;
+					
+				case Device::WIPE_DATA_UBUNTU:
+					wipe_data_ubuntu(device);
+					break;
+					
+				case Device::REPLACE_SYSTEM:
+					replace_system(device);
+					break;
+				
+				case Device::INSTALL_UBUNTU_ZIP:
+					install_ubuntu_zip(device);
+					break;
+					
+				case Device::INSTALL_UBUNTU_ROOTSTOCK:
+					install_ubuntu(device);
+					break;
+					
             }
             if (status == Device::kRefresh) {
                 status = 0;
@@ -1121,6 +1288,11 @@ prompt_and_wait(Device* device, int status) {
             break;
         }
     }
+}
+
+static Device::BuiltinAction
+prompt_and_wait(Device* device, int status){
+	return prompt_and_wait(device, status, Device::MODE_MENU);
 }
 
 static void
@@ -1301,6 +1473,8 @@ main(int argc, char **argv) {
     bool headless = false;
     bool just_exit = false;
     bool shutdown_after = false;
+    const char *update_ubuntu_package = NULL;
+    const char *user_data_update_package = NULL;
 
     int arg;
     while ((arg = getopt_long(argc, argv, "", OPTIONS, NULL)) != -1) {
@@ -1312,6 +1486,7 @@ main(int argc, char **argv) {
         case 'm': wipe_media = 1; break;
         case 'c': wipe_cache = 1; break;
         case 't': show_text = 1; break;
+        case 'v': update_ubuntu_package = UBUNTU_UPDATE_SCRIPT; break;
         case 'x': just_exit = true; break;
         case 'l': locale = optarg; break;
         case 'g': {
@@ -1427,6 +1602,15 @@ main(int argc, char **argv) {
                 ui->ShowText(true);
             }
         }
+    } else if (update_ubuntu_package != NULL) {
+        LOGI("Performing Ubuntu update");
+        ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+        ui->Print("Installing Ubuntu update.\n");
+        char tmp[PATH_MAX];
+        sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
+        __system(tmp);
+        LOGI("Ubuntu update complete");
+        ui->Print("Ubuntu update complete.\n");
     } else if (wipe_data) {
         if (device->WipeData()) status = INSTALL_ERROR;
         if (erase_volume("/data", wipe_media)) status = INSTALL_ERROR;
@@ -1443,6 +1627,8 @@ main(int argc, char **argv) {
     } else if (!just_exit) {
         status = INSTALL_NONE;  // No command specified
     }
+   
+
 
     if (status == INSTALL_ERROR || status == INSTALL_CORRUPT) {
         copy_logs();
