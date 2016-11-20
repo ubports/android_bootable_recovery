@@ -263,7 +263,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := system-image-upgrader
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional eng debug 
 LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
@@ -271,7 +271,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := replace-system
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional eng debug
 LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
@@ -279,7 +279,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := install-system
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional eng debug
 LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
@@ -287,7 +287,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := archive-master.tar.xz
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional eng debug
 LOCAL_MODULE_CLASS := RECOVERY_ETC
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
 LOCAL_SRC_FILES := archive-master.tar.xz
@@ -295,7 +295,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := archive-master.tar.xz.asc
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional eng debug
 LOCAL_MODULE_CLASS := RECOVERY_ETC
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
 LOCAL_SRC_FILES := archive-master.tar.xz.asc
@@ -304,7 +304,7 @@ include $(BUILD_PREBUILT)
 # Minizip static library
 include $(CLEAR_VARS)
 LOCAL_MODULE := libminizip_static
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional 
 LOCAL_CFLAGS := -Dmain=minizip_main -D__ANDROID__ -DIOAPI_NO_64
 LOCAL_C_INCLUDES := external/zlib
 LOCAL_C_INCLUDES += external/lz4/lib
