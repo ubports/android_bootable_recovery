@@ -1,8 +1,11 @@
 #!/sbin/sh
 set -e
 echo "Starting image Upgrade pre" > /cache/system-image-upgrader.log
+echo "This is command file: $1 " >> /cache/system-image-upgrader.log
+
 if [ ! -e "$1" ]; then
-    echo "Command file doesn't exist: $1"
+    echo "Command file doesn't exist: $1" >> /cache/system-image-upgrader.log
+
     exit 1
 fi
 mv $1 $1.applying
@@ -16,13 +19,14 @@ DATA_FORMAT=0
 # System Mountpoint
 SYSTEM_MOUNTPOINT=/cache/system
 
-echo "Starting image upgrader: $(date)" >> /cache/test.log
+echo "Starting image upgrader: $(date)" >> /cache/system-image-upgrader.log
 
 # Functions
 check_filesystem() {
     # $1 => image to check (partition or device img)
     if [ ! -e $1 ]; then
-        echo "Partition/image not found: $1"
+        echo "Partition/image not found: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -34,7 +38,8 @@ check_filesystem() {
     # 0 - No errors
     # 1 - File system errors corrected
     if [ $ret -ne 0 ] && [ $ret -ne 1 ]; then
-        echo "e2fsck is unable to fix partition/image $1, aborting (return code $ret)"
+        echo "e2fsck is unable to fix partition/image $1, aborting (return code $ret)" >> /cache/system-image-upgrader.log
+
         exit 1
     fi
     set -e
@@ -48,7 +53,8 @@ verify_signature() {
   #  fi
 
     if [ ! -e $2 ]; then
-        echo "File doesn't exist: $2"
+        echo "File doesn't exist: $2" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -56,7 +62,8 @@ verify_signature() {
     if [ -e /tmp/system-image/blacklist/pubring.gpg ]; then
         export GNUPGHOME=/tmp/system-image/blacklist/
         if gpg --ignore-time-conflict --verify $2 >/dev/null 2>&1; then
-            echo "File signed by a blacklisted key: $2"
+            echo "File signed by a blacklisted key: $2" >> /cache/system-image-upgrader.log
+
             return 1
         fi
     fi
@@ -64,7 +71,8 @@ verify_signature() {
     # Check against the keyring
     export GNUPGHOME=/tmp/system-image/$1/
     if [ ! -e "$GNUPGHOME" ]; then
-        echo "Keyring doesn't exist: $1"
+        echo "Keyring doesn't exist: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -81,7 +89,8 @@ install_keyring() {
 
     # Some basic checks
     if [ ! -e "$1" ] || [ ! -e "$2" ]; then
-        echo "Missing keyring files: $1 => $2"
+        echo "Missing keyring files: $1 => $2" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -91,7 +100,8 @@ install_keyring() {
     cat $1 | unxz | tar xf -
     if [ ! -e keyring.json ] || [ ! -e keyring.gpg ]; then
         rm -Rf $TMPDIR
-        echo "Invalid keyring: $1"
+        echo "Invalid keyring: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -99,7 +109,8 @@ install_keyring() {
     keyring_expiry=$(grep "^    \"expiry\": " keyring.json | cut -d: -f2 | sed -e "s/[ \",]//g")
     if [ -n "$keyring_expiry" ] && [ "$keyring_expiry" -lt "$(date +%s)" ]; then
         rm -Rf $TMPDIR
-        echo "Keyring expired: $1"
+        echo "Keyring expired: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -107,13 +118,15 @@ install_keyring() {
     keyring_type=$(grep "^    \"type\": " keyring.json | cut -d: -f2 | sed -e "s/[, \"]//g")
     if [ -z "$keyring_type" ]; then
         rm -Rf $TMPDIR
-        echo "Missing keyring type: $1"
+        echo "Missing keyring type: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
     if [ -e /tmp/system-image/$keyring_type ]; then
         rm -Rf $TMPDIR
-        echo "Keyring already loaded: $1"
+        echo "Keyring already loaded: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -138,7 +151,8 @@ install_keyring() {
 
     if [ -n "$signer" ] && ! verify_signature $signer $2; then
         rm -Rf $TMPDIR
-        echo "Invalid signature: $1"
+        echo "Invalid signature: $1" >> /cache/system-image-upgrader.log
+
         return 1
     fi
 
@@ -159,7 +173,8 @@ property_write() {
     mkdir -p "$prop_dir"
     chown 0:0 "$prop_dir"
     chmod 700 "$prop_dir"
-    echo -n "$prop_value" > "$prop_dir/$prop"
+    echo -n "$prop_value" > "$prop_dir/$prop" >> /cache/system-image-upgrader.log
+
     # properties won't be read if they aren't ro root
     chown 0:0 "$prop_dir/$prop"
     chmod 600 "$prop_dir/$prop"
@@ -182,7 +197,8 @@ adb_onlock() {
         ;;
 
         *)
-            echo "Unkown parameter $1, disabling"
+            echo "Unkown parameter $1, disabling" >> /cache/system-image-upgrader.log
+
             rm -f "$flag"
         ;;
     esac
@@ -198,7 +214,8 @@ set_password() {
         return 1
     fi
     path=/bin:/usr/bin:/sbin:/usr/sbin
-    PATH=$path chroot "$SYSTEM_MOUNTPOINT" /bin/sh -c "echo -n "$user:$password" | chpasswd"
+    PATH=$path chroot "$SYSTEM_MOUNTPOINT" /bin/sh -c "echo -n "$user:$password" | chpasswd" >> /cache/system-image-upgrader.log
+
     return 0
 }
 
@@ -250,7 +267,8 @@ factory_wipe() {
         ;;
 
         *)
-            echo "Unkown parameter $1, disabling"
+            echo "Unkown parameter $1, disabling" >> /cache/system-image-upgrader.log
+
             rm -f "$flag"
         ;;
     esac
@@ -260,7 +278,8 @@ factory_wipe() {
 rm -Rf /tmp/system-image
 mkdir -p /tmp/system-image
 if [ -e /etc/system-image/archive-master.tar.xz ]; then
-    echo "Loading keyring: archive-master.tar.xz"
+    echo "Loading keyring: archive-master.tar.xz"  >> /cache/system-image-upgrader.log
+
     install_keyring /etc/system-image/archive-master.tar.xz /etc/system-image/archive-master.tar.xz.asc
 fi
 
@@ -298,7 +317,7 @@ do
     set -- $line
     case "$1" in
         format)
-            echo "Formating: $2"
+            echo "Formating: $2"  >> /cache/system-image-upgrader.log
             case "$2" in
                 system)
                     FULL_IMAGE=1
@@ -329,13 +348,15 @@ do
                 ;;
 
                 *)
-                    echo "Unknown format target: $2"
+                    echo "Unknown format target: $2" >> /cache/system-image-upgrader.log
+
                 ;;
             esac
         ;;
 
         enable)
-            echo "Enabling: $2"
+            echo "Enabling: $2" >> /cache/system-image-upgrader.log
+
             case "$2" in
                 developer_mode)
                     usb_enable adb
@@ -358,13 +379,15 @@ do
                 ;;
 
                 *)
-                    echo "Unknown enable target: $2"
+                    echo "Unknown enable target: $2" >> /cache/system-image-upgrader.log
+
                 ;;
             esac
         ;;
 
         disable)
-            echo "Disabling: $2"
+            echo "Disabling: $2" >> /cache/system-image-upgrader.log
+
             case "$2" in
                 developer_mode)
                     usb_disable adb
@@ -387,26 +410,30 @@ do
                 ;;
 
                 *)
-                    echo "Unknown disable target: $2"
+                    echo "Unknown disable target: $2" >> /cache/system-image-upgrader.log
+
                 ;;
             esac
         ;;
 
         load_keyring)
             if [ ! -e "/cache/recovery/$2" ] || [ ! -e "/cache/recovery/$3" ]; then
-                echo "Skipping missing file: $2"
+                echo "Skipping missing file: $2" >> /cache/system-image-upgrader.log
+
                 continue
             fi
             REMOVE_LIST="$REMOVE_LIST /cache/recovery/$2 /cache/recovery/$3"
 
-            echo "Loading keyring: $2"
+            echo "Loading keyring: $2" >> /cache/system-image-upgrader.log
+
             install_keyring /cache/recovery/$2 /cache/recovery/$3
 
             if [ -e /tmp/system-image/image-master/pubring.gpg ] && \
                [ ! -e /tmp/system-image/blacklist/pubring.gpg ] && \
                [ -e /data/system-data/var/lib/system-image/blacklist.tar.xz ] && \
                [ -e /data/system-data/var/lib/system-image/blacklist.tar.xz.asc ]; then
-                echo "Loading blacklist keyring"
+                echo "Loading blacklist keyring" >> /cache/system-image-upgrader.log
+
                 install_keyring /data/system-data/var/lib/system-image/blacklist.tar.xz /data/system-data/var/lib/system-image/blacklist.tar.xz.asc
             fi
         ;;
@@ -428,7 +455,8 @@ do
                 ;;
 
                 *)
-                    echo "Unknown mount target: $2"
+                    echo "Unknown mount target: $2" >> /cache/system-image-upgrader.log
+
                 ;;
             esac
         ;;
@@ -441,14 +469,16 @@ do
                 ;;
 
                 *)
-                    echo "Unknown mount target: $2"
+                    echo "Unknown mount target: $2" >> /cache/system-image-upgrader.log
+
                 ;;
             esac
         ;;
 
         update)
             if [ ! -e "/cache/recovery/$2" ] || [ ! -e "/cache/recovery/$3" ]; then
-                echo "Skipping missing file: $2"
+                echo "Skipping missing file: $2" >> /cache/system-image-upgrader.log
+
                 continue
             fi
 
@@ -456,11 +486,13 @@ do
 
             if ! verify_signature device-signing /cache/recovery/$3 && \
                ! verify_signature image-signing /cache/recovery/$3; then
-                echo "Invalid signature"
+                echo "Invalid signature" >> /cache/system-image-upgrader.log
+
                 exit 1
             fi
 
-            echo "Applying update: $2"
+            echo "Applying update: $2" >> /cache/system-image-upgrader.log
+
             cd /cache
             rm -Rf partitions
 
@@ -487,7 +519,8 @@ do
                 path=$1
 
                 if [ -e partitions/${part}.img ] && [ -e $path ]; then
-                    echo "Flashing ${part} at ${path}"
+                    echo "Flashing ${part} at ${path}" >> /cache/system-image-upgrader.log
+
                     cat partitions/${part}.img > ${path}
                     rm partitions/${part}.img
                 fi
@@ -495,7 +528,8 @@ do
         ;;
 
         *)
-            echo "Unknown command: $1"
+            echo "Unknown command: $1" >> /cache/system-image-upgrader.log
+
         ;;
     esac
 done < $COMMAND_FILE
@@ -513,7 +547,8 @@ done
 if [ -e /data/SWAP.img ]; then
     swap_size=`stat /data/SWAP.img | grep Size | awk -F' ' '{print $2}'`
     if [ "$swap_size" = "536870912" ]; then
-        echo "Removing old 512MB swap file."
+        echo "Removing old 512MB swap file." >> /cache/system-image-upgrader.log
+
         rm -f /data/SWAP.img
     fi
 fi
@@ -523,7 +558,8 @@ fi
 # that the kernel memory manager algorithm behaves better if swap
 # is available, even if a minimal one (not to be used by the system)
 if [ ! -e /data/SWAP.img ]; then
-    echo "Creating SWAP device (32MB)."
+    echo "Creating SWAP device (32MB)." >> /cache/system-image-upgrader.log
+
     dd if=/dev/zero of=/data/SWAP.img bs=4096 count=8192
     mkswap /data/SWAP.img
 fi
