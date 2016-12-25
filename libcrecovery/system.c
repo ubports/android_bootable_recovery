@@ -66,8 +66,8 @@ __system(const char *command)
     _exit(127);
   }
 
-	intsave = (sig_t)  bsd_signal(SIGINT, SIG_IGN);
-	quitsave = (sig_t) bsd_signal(SIGQUIT, SIG_IGN);
+	intsave = (sig_t) (intptr_t) bsd_signal(SIGINT, SIG_IGN);
+	quitsave = (sig_t) (intptr_t) bsd_signal(SIGQUIT, SIG_IGN);
 	pid = waitpid(pid, (int *)&pstat, 0);
 	sigprocmask(SIG_SETMASK, &omask, NULL);
 	(void)bsd_signal(SIGINT, intsave);

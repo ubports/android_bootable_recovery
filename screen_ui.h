@@ -87,6 +87,7 @@ class ScreenRecoveryUI : public RecoveryUI {
     gr_surface progressBarFill;
     gr_surface stageMarkerEmpty;
     gr_surface stageMarkerFill;
+    gr_surface gBackground;
 
     ProgressType progressBarType;
 

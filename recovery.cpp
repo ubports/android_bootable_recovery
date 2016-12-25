@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2007 The Android Open Source Project
  *
@@ -42,6 +43,7 @@
 #include "ui.h"
 #include "screen_ui.h"
 #include "device.h"
+#include "ubupdater.h"
 
 #include "voldclient/voldclient.h"
 
@@ -276,7 +278,7 @@ get_args(int *argc, char ***argv) {
             LOGE("Bad boot message\n\"%.20s\"\n", boot.recovery);
         }
     }
-    
+
         // ----if that doesn't work, try Ubuntu command file
     if (*argc <= 1) {
         FILE *fp = fopen_path(UBUNTU_COMMAND_FILE, "r");
@@ -991,7 +993,7 @@ static int enter_sideload_mode(int* wipe_cache, Device* device) {
     return status;
 }
 
-static int 
+static int
 replace_system(Device* device){
 		static const char* headers[] = { "Replace System", "", NULL };
 		int status = INSTALL_ERROR;
@@ -1010,7 +1012,7 @@ replace_system(Device* device){
 		return status;
 }
 
-static int 
+static int
 install_ubuntu(Device* device){
 		static const char* headers[] = { "Install ubuntu system", "", NULL };
 		int status = INSTALL_ERROR;
@@ -1021,18 +1023,18 @@ install_ubuntu(Device* device){
         int item = get_menu_selection(NULL, items, 1, 0, device);
         if (item != 0) return status;
         char* rootfs = browse_directory("/data", device, "r.gz");
-        
+
         const char* items2[] = { " Choose android system.img",
 								"Go back",
                                 NULL };
         int item2 = get_menu_selection(NULL, items2, 1, 0, device);
         if (item2 != 0) return status;
 		char* img = browse_directory("/data", device, ".img");
-		
+
 		if (rootfs != NULL && img != NULL){
 			ui->Print("\n-- Installing ubuntu system... ");
 			ui->ClearLog();
-			
+
 			ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
 			char tmp[PATH_MAX];
 			sprintf(tmp, "install-system pre %s %s", rootfs, img);
@@ -1041,10 +1043,10 @@ install_ubuntu(Device* device){
 			status = INSTALL_SUCCESS;
 		}
 		return status;
-		
+
 }
 
-static int 
+static int
 install_ubuntu_zip(Device* device){
 		static const char* headers[] = { "Install ubuntu system", "", NULL };
 		int status = INSTALL_ERROR;
@@ -1086,7 +1088,7 @@ wipe_data_ubuntu(Device* device) {
 	if (chosen_item != 2) {
 		return;
 	}
-    
+
 
     ui->Print("\n-- Wiping ubuntu data...\n");
     __system("mount /data");
@@ -1187,7 +1189,7 @@ prompt_and_wait(Device* device, int status, Device::Mode mode) {
     const char* const* headers = prepend_title(device->GetMenuHeaders());
 	finish_recovery(NULL);
     for (;;) {
-        
+
         ui_root_menu = 1;
         switch (status) {
             case INSTALL_SUCCESS:
@@ -1210,6 +1212,8 @@ prompt_and_wait(Device* device, int status, Device::Mode mode) {
         Device::BuiltinAction chosen_action = device->InvokeMenuItem(chosen_item, mode);
 
         int wipe_cache = 0;
+
+        __system("mount /cache");
 
         for (;;) {
             switch (chosen_action) {
@@ -1248,38 +1252,38 @@ prompt_and_wait(Device* device, int status, Device::Mode mode) {
                 case Device::READ_RECOVERY_LASTLOG:
                     choose_recovery_file(device);
                     break;
-                    
+
                 case Device::ACTION_MODE_UBUNTU:
 					mode = Device::MODE_UBUNTU;
 					status = 0;
 					break;
-					
+
 				case Device::ACTION_MODE_ANDROID:
 					mode = Device::MODE_ANDROID;
 					status = 0;
 					break;
-					
+
 				case Device::GO_BACK:
 					mode = Device::MODE_MENU;
 					status = 0;
 					break;
-					
+
 				case Device::WIPE_DATA_UBUNTU:
 					wipe_data_ubuntu(device);
 					break;
-					
+
 				case Device::REPLACE_SYSTEM:
 					replace_system(device);
 					break;
-				
+
 				case Device::INSTALL_UBUNTU_ZIP:
 					install_ubuntu_zip(device);
 					break;
-					
+
 				case Device::INSTALL_UBUNTU_ROOTSTOCK:
 					install_ubuntu(device);
 					break;
-					
+
             }
             if (status == Device::kRefresh) {
                 status = 0;
@@ -1477,6 +1481,7 @@ main(int argc, char **argv) {
     const char *user_data_update_package = NULL;
 
     int arg;
+
     while ((arg = getopt_long(argc, argv, "", OPTIONS, NULL)) != -1) {
         switch (arg) {
         case 's': send_intent = optarg; break;
@@ -1543,6 +1548,9 @@ main(int argc, char **argv) {
 
     device->StartRecovery();
 
+    __system("mount -a");
+    __system("mount /cache");
+
     printf("Command:");
     for (arg = 0; arg < argc; arg++) {
         printf(" \"%s\"", argv[arg]);
@@ -1603,14 +1611,7 @@ main(int argc, char **argv) {
             }
         }
     } else if (update_ubuntu_package != NULL) {
-        LOGI("Performing Ubuntu update");
-        ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-        ui->Print("Installing Ubuntu update.\n");
-        char tmp[PATH_MAX];
-        sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
-        __system(tmp);
-        LOGI("Ubuntu update complete");
-        ui->Print("Ubuntu update complete.\n");
+        status = do_ubuntu_update(ui);
     } else if (wipe_data) {
         if (device->WipeData()) status = INSTALL_ERROR;
         if (erase_volume("/data", wipe_media)) status = INSTALL_ERROR;
@@ -1627,18 +1628,20 @@ main(int argc, char **argv) {
     } else if (!just_exit) {
         status = INSTALL_NONE;  // No command specified
     }
-   
+
 
 
     if (status == INSTALL_ERROR || status == INSTALL_CORRUPT) {
         copy_logs();
         ui->SetBackground(RecoveryUI::ERROR);
     }
+    __system("mount /cache");
     Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
     if (headless) {
         ui->ShowText(true);
         ui->SetHeadlessMode();
         finish_recovery(NULL);
+        __system("mount /cache");
         for (;;) {
             pause();
         }

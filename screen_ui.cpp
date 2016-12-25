@@ -101,6 +101,11 @@ void ScreenRecoveryUI::draw_background_locked(Icon icon)
     SetColor(TEXT_FILL);
     gr_clear();
 
+    if (icon == INSTALLING_UPDATE) {
+      gr_color(228, 228, 228, 255);
+      gr_fill(0, 0, gr_fb_width(), gr_fb_height());
+    }
+
     if (icon) {
         gr_surface surface = backgroundIcon[icon];
         if (icon == INSTALLING_UPDATE || icon == ERASING) {
@@ -504,6 +509,7 @@ void ScreenRecoveryUI::Init()
     LoadBitmap("progress_fill", &progressBarFill);
     LoadBitmap("stage_empty", &stageMarkerEmpty);
     LoadBitmap("stage_fill", &stageMarkerFill);
+    LoadBitmap("background", &gBackground);
 
     LoadLocalizedBitmap("installing_text", &backgroundText[INSTALLING_UPDATE]);
     LoadLocalizedBitmap("erasing_text", &backgroundText[ERASING]);

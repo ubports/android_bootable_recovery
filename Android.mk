@@ -41,6 +41,7 @@ LOCAL_SRC_FILES := \
     asn1_decoder.cpp \
     verifier.cpp \
     adb_install.cpp \
+    ubupdater.cpp \
     fuse_sdcard_provider.c
 
 # External tools
@@ -149,7 +150,7 @@ LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_C_INCLUDES += external/openssl/include
 
 # Symlinks
-RECOVERY_LINKS := busybox getprop make_ext4fs minizip reboot sdcard setup_adbd setprop start stop vdc
+RECOVERY_LINKS := busybox getprop make_ext4fs minizip reboot sdcard setup_adbd setprop start stop vdc mktemp gpg
 
 RECOVERY_SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(RECOVERY_LINKS))
 
@@ -164,6 +165,13 @@ LOCAL_ADDITIONAL_DEPENDENCIES += \
     recovery_e2fsck \
     recovery_mke2fs \
     recovery_tune2fs
+
+LOCAL_ADDITIONAL_DEPENDENCIES += \
+		system-image-upgrader \
+		replace-system \
+		install-system \
+		archive-master.tar.xz \
+		archive-master.tar.xz.asc
 
 ifeq ($(TARGET_USES_EXFAT),true)
 LOCAL_ADDITIONAL_DEPENDENCIES += \
@@ -263,7 +271,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := system-image-upgrader
-LOCAL_MODULE_TAGS := optional eng debug 
+LOCAL_MODULE_TAGS := optional eng debug
 LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
@@ -304,7 +312,7 @@ include $(BUILD_PREBUILT)
 # Minizip static library
 include $(CLEAR_VARS)
 LOCAL_MODULE := libminizip_static
-LOCAL_MODULE_TAGS := optional 
+LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Dmain=minizip_main -D__ANDROID__ -DIOAPI_NO_64
 LOCAL_C_INCLUDES := external/zlib
 LOCAL_C_INCLUDES += external/lz4/lib
