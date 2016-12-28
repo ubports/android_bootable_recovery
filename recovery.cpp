@@ -479,7 +479,6 @@ finish_recovery(const char *send_intent) {
         LOGW("Can't unlink %s\n", COMMAND_FILE);
     }
 
-    ensure_path_unmounted(CACHE_ROOT);
     sync();  // For good measure.
 }
 
@@ -1213,8 +1212,6 @@ prompt_and_wait(Device* device, int status, Device::Mode mode) {
 
         int wipe_cache = 0;
 
-        __system("mount /cache");
-
         for (;;) {
             switch (chosen_action) {
                 case Device::NO_ACTION:
@@ -1549,7 +1546,6 @@ main(int argc, char **argv) {
     device->StartRecovery();
 
     __system("mount -a");
-    __system("mount /cache");
 
     printf("Command:");
     for (arg = 0; arg < argc; arg++) {
@@ -1635,13 +1631,11 @@ main(int argc, char **argv) {
         copy_logs();
         ui->SetBackground(RecoveryUI::ERROR);
     }
-    __system("mount /cache");
     Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
     if (headless) {
         ui->ShowText(true);
         ui->SetHeadlessMode();
         finish_recovery(NULL);
-        __system("mount /cache");
         for (;;) {
             pause();
         }
