@@ -20,38 +20,39 @@
  #include "ui.h"
  #include "install.h"
 
- extern "C" {
+extern "C" {
  #include "libcrecovery/common.h"
- }
+}
 
- static const char *UBUNTU_COMMAND_FILE = "/cache/recovery/ubuntu_command";
- static const char *UBUNTU_UPDATE_SCRIPT = "/sbin/system-image-upgrader";
+static const char *UBUNTU_COMMAND_FILE = "/cache/recovery/ubuntu_command";
+static const char *UBUNTU_UPDATE_SCRIPT = "/sbin/system-image-upgrader";
 
-//TODO: add error handeling
-//TODO: show status (text or progressbar) under update
+//TODO: make and show "error screen" if ubpdate fails
 
 int do_ubuntu_update(RecoveryUI *ui){
-  ui->ShowText(true);
-  ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-  ui->Print("Installing Ubuntu update...\n");
-  char tmp[PATH_MAX];
-  sprintf(tmp, "%s %s &> /cache/install.log", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
-  __system("mount /cache");
-  __system(tmp);
-  ui->Print("Ubuntu update complete...\n");
-  __system("reboot");
-  return INSTALL_SUCCESS;
+        ui->ShowText(true);
+        ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+        ui->Print("Installing Ubuntu update...\n");
+        ui->SetProgressType(RecoveryUI::DOT);
+        char tmp[PATH_MAX];
+        sprintf(tmp, "%s %s &> /cache/install.log", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
+        if (__system(tmp) == 0) {
+                ui->ShowText(false);
+                return INSTALL_SUCCESS;
+        }
+        ui->SetProgressType(RecoveryUI::EMPTY);
+        return INSTALL_ERROR;
 }
 
 int do_test_update(RecoveryUI *ui){
-  ui->ShowText(true);
-  ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-  ui->Print("Installing Ubuntu update...\n");
-  char tmp[PATH_MAX];
-  sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
-  sleep(10);
-  ui->Print("Slept 10");
-  sleep(100);
-  ui->Print("Ubuntu update complete...\n");
-  return INSTALL_SUCCESS;
+        ui->ShowText(true);
+        ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
+        ui->Print("Installing Ubuntu update...\n");
+        ui->SetProgressType(RecoveryUI::DOT);
+        char tmp[PATH_MAX];
+        sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
+        sleep(10);
+        ui->Print("Slept 10");
+        ui->Print("Ubuntu update complete...\n");
+        return INSTALL_ERROR;
 }

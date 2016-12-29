@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
+ * Copyright (C) 2016 The Ubports Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,6 +89,7 @@ class ScreenRecoveryUI : public RecoveryUI {
     gr_surface stageMarkerEmpty;
     gr_surface stageMarkerFill;
     gr_surface gBackground;
+    gr_surface gInstallDot;
 
     ProgressType progressBarType;
 
@@ -132,6 +134,7 @@ class ScreenRecoveryUI : public RecoveryUI {
   private:
 
     int iconX, iconY;
+    int iconHeight;
 
     int stage, max_stage;
 
@@ -146,9 +149,11 @@ class ScreenRecoveryUI : public RecoveryUI {
 
     bool rainbow;
     int wrap_count;
+    int dot_place;
 
     void draw_background_locked(Icon icon);
     void draw_progress_locked();
+    void draw_dot_progress_locked();
     int  draw_header_icon();
     void draw_menu_item(int textrow, const char *text, int selected);
     void draw_dialog();

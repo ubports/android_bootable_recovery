@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2016 The Ubports Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1630,6 +1631,7 @@ main(int argc, char **argv) {
     if (status == INSTALL_ERROR || status == INSTALL_CORRUPT) {
         copy_logs();
         ui->SetBackground(RecoveryUI::ERROR);
+        ui->Print("Update faled, please reboot and try again...");
     }
     Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
     if (headless) {

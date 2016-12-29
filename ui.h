@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
+ * Copyright (C) 2016 The Ubports Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +110,7 @@ class RecoveryUI {
     virtual void SetBackground(Icon icon) = 0;
 
     // --- progress indicator ---
-    enum ProgressType { EMPTY, INDETERMINATE, DETERMINATE };
+    enum ProgressType { EMPTY, INDETERMINATE, DETERMINATE, DOT };
     virtual void SetProgressType(ProgressType determinate) = 0;
 
     // Show a progress bar and define the scope of the next operation:
