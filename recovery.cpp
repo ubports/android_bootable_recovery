@@ -1523,6 +1523,10 @@ main(int argc, char **argv) {
     ui->SetLocale(locale);
     ui->Init();
 
+    // If ubuntu_command file exists, run ubuntu update
+    if (open(UBUNTU_COMMAND_FILE, O_WRONLY|O_CREAT, 0622) >= 0)
+        update_ubuntu_package = UBUNTU_UPDATE_SCRIPT;
+
     int st_cur, st_max;
     if (stage != NULL && sscanf(stage, "%d/%d", &st_cur, &st_max) == 2) {
         ui->SetStage(st_cur, st_max);
