@@ -1524,7 +1524,7 @@ main(int argc, char **argv) {
     ui->Init();
 
     // If ubuntu_command file exists, run ubuntu update
-    if (open(UBUNTU_COMMAND_FILE, O_WRONLY|O_CREAT, 0622) >= 0)
+    if (access(UBUNTU_COMMAND_FILE, F_OK) != -1 )
         update_ubuntu_package = UBUNTU_UPDATE_SCRIPT;
 
     int st_cur, st_max;
@@ -1612,7 +1612,8 @@ main(int argc, char **argv) {
             }
         }
     } else if (update_ubuntu_package != NULL) {
-        status = do_ubuntu_update(ui);
+        if (access(UBUNTU_COMMAND_FILE, F_OK) != -1 )
+            status = do_ubuntu_update(ui);
     } else if (wipe_data) {
         if (device->WipeData()) status = INSTALL_ERROR;
         if (erase_volume("/data", wipe_media)) status = INSTALL_ERROR;
