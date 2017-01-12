@@ -26,6 +26,7 @@ extern "C" {
 
 static const char *UBUNTU_COMMAND_FILE = "/cache/recovery/ubuntu_command";
 static const char *UBUNTU_UPDATE_SCRIPT = "/sbin/system-image-upgrader";
+static const char *UBUNTU_DEBUG_FILE = "/cache/recovery/ubuntu_debug";
 
 //TODO: make and show "error screen" if ubpdate fails
 
@@ -35,7 +36,10 @@ int do_ubuntu_update(RecoveryUI *ui){
         ui->Print("Installing Ubuntu update...\n");
         ui->SetProgressType(RecoveryUI::DOT);
         char tmp[PATH_MAX];
-        sprintf(tmp, "%s %s &> /cache/install.log", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
+        if (access(UBUNTU_DEBUG_FILE, F_OK) != -1 )
+          sprintf(tmp, "%s %s &> /cache/ubuntu_updater.log", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
+        else
+          sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
         if (__system(tmp) == 0) {
                 ui->ShowText(false);
                 return INSTALL_SUCCESS;
