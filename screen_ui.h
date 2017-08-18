@@ -90,6 +90,10 @@ class ScreenRecoveryUI : public RecoveryUI {
     gr_surface stageMarkerFill;
     gr_surface gBackground;
     gr_surface gInstallDot;
+    gr_surface gInstallDotFill;
+    gr_surface gInstallFrame1;
+    gr_surface gInstallFrame2;
+    gr_surface gInstallFrame3;
 
     ProgressType progressBarType;
 
@@ -150,6 +154,10 @@ class ScreenRecoveryUI : public RecoveryUI {
     bool rainbow;
     int wrap_count;
     int dot_place;
+    int dot_frame_counter = 0;
+    int installing_frame_next_blink = 0;
+    int installing_frame_counter = 0;
+    int installing_frame_next = 0;
 
     void draw_background_locked(Icon icon);
     void draw_progress_locked();
