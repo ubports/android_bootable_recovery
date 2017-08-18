@@ -105,15 +105,13 @@ void ScreenRecoveryUI::draw_background_locked(Icon icon)
         gr_clear();
 
         if (icon == INSTALLING_UPDATE) {
-                gr_color(228, 228, 228, 255);
+                gr_color(66, 66, 66, 255);
                 gr_fill(0, 0, gr_fb_width(), gr_fb_height());
         }
 
         if (icon) {
-                gr_surface surface = backgroundIcon[icon];
-                if (icon == INSTALLING_UPDATE || icon == ERASING) {
-                        surface = installation[installingFrame];
-                }
+                gr_surface surface = gInstallFrame1;
+
                 gr_surface text_surface = backgroundText[icon];
 
                 int iconWidth = gr_get_width(surface);
@@ -156,19 +154,34 @@ void ScreenRecoveryUI::draw_dot_progress_locked()
 {
         int dotWidth = gr_get_width(gInstallDot);
         int dotHeight = gr_get_width(gInstallDot);
-        int dotY = iconY + iconHeight+15;
+        int dotY = iconY + iconHeight+45;
         int dotCenterX = (gr_fb_width() - dotWidth) / 2;
         int dot1X = (dotCenterX - dotWidth) / 2;
         int dot2X = dot1X + dotCenterX + dotWidth;
-        gr_color(228, 228, 228, 255);
-        gr_fill(0, 0, gr_fb_width(), gr_fb_height());
-        if (dot_place == 1) gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dot1X, dotY);
-        else if (dot_place == 2) gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dotCenterX, dotY);
-        else {
-          gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dot2X, dotY);
-          dot_place = 0;
+
+        gr_blit(gInstallDotFill, 0, 0, dotWidth, dotHeight, dot2X, dotY);
+        gr_blit(gInstallDotFill, 0, 0, dotWidth, dotHeight, dot1X, dotY);
+        gr_blit(gInstallDotFill, 0, 0, dotWidth, dotHeight, dotCenterX, dotY);
+
+
+        switch (dot_place) {
+          case 1:
+                gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dot1X, dotY);
+                break;
+          case 2:
+                gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dotCenterX, dotY);
+                break;
+          default:
+                gr_blit(gInstallDot, 0, 0, dotWidth, dotHeight, dot2X, dotY);
+                dot_place = 0;
+                break;
         }
+
+      if (dot_frame_counter > 6) {
         dot_place++;
+        dot_frame_counter = 0;
+      }
+      dot_frame_counter++;
 }
 
 // Draw the progress bar (if any) on the screen.  Does not flip pages.
@@ -178,10 +191,32 @@ void ScreenRecoveryUI::draw_progress_locked()
         if (currentIcon == ERROR) return;
 
         if (currentIcon == INSTALLING_UPDATE || currentIcon == ERASING) {
-                gr_surface icon = installation[installingFrame];
+                gr_surface icon = NULL;
+                switch (installing_frame_next) {
+                  case 0: icon = gInstallFrame1;
+                          if (installing_frame_counter > installing_frame_next_blink){
+                            installing_frame_counter = 0;
+                            installing_frame_next = 1;
+                            installing_frame_next_blink = rand()%(110-30 + 1) + 30;
+                          }
+                          installing_frame_counter++;
+                          break;
+                  case 1: icon = gInstallFrame2;
+                          installing_frame_next = 2;
+                          break;
+                  case 2: icon = gInstallFrame3;
+                          installing_frame_next = 3;
+                          break;
+                  case 3: icon = gInstallFrame2;
+                          installing_frame_next = 0;
+                          break;
+                  default: icon = gInstallFrame1;
+                           installing_frame_next = 0;
+                           break;
+                }
                 gr_blit(icon, 0, 0, gr_get_width(icon), gr_get_height(icon), iconX, iconY);
         }
-
+#if 0
         if (progressBarType != EMPTY) {
                 int iconHeight = gr_get_height(backgroundIcon[INSTALLING_UPDATE]);
                 int width = gr_get_width(progressBarEmpty);
@@ -220,6 +255,7 @@ void ScreenRecoveryUI::draw_progress_locked()
                         }
                 }
         }
+        #endif
 }
 
 void ScreenRecoveryUI::SetColor(UIElement e) {
@@ -413,7 +449,8 @@ void ScreenRecoveryUI::ToggleRainbowMode()
 }
 
 void ScreenRecoveryUI::progress_loop() {
-        double interval = 10.0 / animation_fps;
+        installing_frame_next_blink = rand()%(110-30 + 1) + 30;
+        double interval = 1.5 / animation_fps;
         for (;; ) {
                 pthread_mutex_lock(&updateMutex);
                 if (progressBarType == EMPTY && !update_waiting)
@@ -451,14 +488,17 @@ void ScreenRecoveryUI::progress_loop() {
                                 pagesIdentical = true;
                 }
 
+                if (progressBarType == DOT) {
+                  LOGV("call draw_progress_locked\n");
+                  draw_progress_locked();
+                }
+
                 if (progressBarType == DOT){
                   draw_dot_progress_locked();
                 }
 
-                if (redraw) {
-                        LOGV("call draw_progress_locked\n");
-                        draw_progress_locked();
-                }
+                installing_frame_counter++;
+
                 gr_flip();
 
                 update_waiting = false;
@@ -468,6 +508,8 @@ void ScreenRecoveryUI::progress_loop() {
                 // minimum of 20ms delay between frames
                 double delay = interval - (end-start);
                 if (delay < 0.02) delay = 0.02;
+
+
                 usleep((long)(delay * 1000000));
         }
 }
@@ -524,7 +566,7 @@ void ScreenRecoveryUI::Init()
         max_menu_rows = (text_rows - text_first_row) / 3;
 
         backgroundIcon[NONE] = NULL;
-        LoadBitmapArray("icon_installing", &installing_frames, &installation);
+        LoadBitmapArray("icon_installing_frame1", &installing_frames, &installation);
         backgroundIcon[INSTALLING_UPDATE] = installing_frames ? installation[0] : NULL;
         backgroundIcon[ERASING] = backgroundIcon[INSTALLING_UPDATE];
         LoadBitmap("icon_info", &backgroundIcon[INFO]);
@@ -537,6 +579,10 @@ void ScreenRecoveryUI::Init()
         LoadBitmap("stage_fill", &stageMarkerFill);
         LoadBitmap("background", &gBackground);
         LoadBitmap("icon_dot", &gInstallDot);
+        LoadBitmap("icon_dot_fill", &gInstallDotFill);
+        LoadBitmap("icon_installing_frame1", &gInstallFrame1);
+        LoadBitmap("icon_installing_frame2", &gInstallFrame2);
+        LoadBitmap("icon_installing_frame3", &gInstallFrame3);
 
         LoadLocalizedBitmap("installing_text", &backgroundText[INSTALLING_UPDATE]);
         LoadLocalizedBitmap("erasing_text", &backgroundText[ERASING]);

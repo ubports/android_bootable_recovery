@@ -31,9 +31,8 @@ static const char *UBUNTU_DEBUG_FILE = "/cache/recovery/ubuntu_debug";
 //TODO: make and show "error screen" if ubpdate fails
 
 int do_ubuntu_update(RecoveryUI *ui){
-        ui->ShowText(true);
+        ui->ShowText(false);
         ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-        ui->Print("Installing Ubuntu update...\n");
         ui->SetProgressType(RecoveryUI::DOT);
         char tmp[PATH_MAX];
         if (access(UBUNTU_DEBUG_FILE, F_OK) != -1 )
@@ -49,14 +48,11 @@ int do_ubuntu_update(RecoveryUI *ui){
 }
 
 int do_test_update(RecoveryUI *ui){
-        ui->ShowText(true);
+        ui->ShowText(false);
         ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-        ui->Print("Installing Ubuntu update...\n");
         ui->SetProgressType(RecoveryUI::DOT);
         char tmp[PATH_MAX];
         sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
-        sleep(10);
-        ui->Print("Slept 10");
-        ui->Print("Ubuntu update complete...\n");
+        sleep(20);
         return INSTALL_ERROR;
 }
