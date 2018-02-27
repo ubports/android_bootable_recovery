@@ -1,7 +1,7 @@
 
 /*
  * Copyright (C) 2007 The Android Open Source Project
- * Copyright (C) 2016 The Ubports Project
+ * Copyright (C) 2016 The UBports Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -586,7 +586,7 @@ prepend_title(const char* const* headers) {
 
     const char** new_headers = (const char**)malloc((count+1) * sizeof(char*));
     const char** h = new_headers;
-    *(h++) = "Ubports Simple recovery <" EXPAND(RECOVERY_API_VERSION) "e>";
+    *(h++) = "UBports Simple recovery <" EXPAND(RECOVERY_API_VERSION) "e>";
     *(h++) = recovery_version;
     *(h++) = "";
     for (p = headers; *p; ++p, ++h) *h = *p;
