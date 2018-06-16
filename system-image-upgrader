@@ -446,7 +446,7 @@ do
                 continue
             fi
 
-            REMOVE_LIST="$REMOVE_LIST /cache/recovery/$2 /cache/recovery/$3"
+            REMOVE_LIST="$REMOVE_LIST /cache/recovery/$3"
 
             if ! verify_signature device-signing /cache/recovery/$3 && \
                ! verify_signature image-signing /cache/recovery/$3; then
@@ -490,6 +490,11 @@ do
                     rm partitions/${part}.img
                 fi
             done
+
+            # Remove tarball to free up space, since device tarballs
+            # extract partitions/blobs that might fill up cache,
+            # this way we ensure we got space for the partitions/blobs
+            rm -f recovery/$2
         ;;
 
         *)
