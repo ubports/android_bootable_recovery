@@ -305,19 +305,16 @@ do
                     if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
                         make.ext4fs $SYSTEM_PARTITION
                     else
-                        #system.img is the deprecated name for ubuntu.img, handle that too
-                        rm -f /data/system.img
-                        rm -f /data/ubuntu.img
-                        dd if=/dev/zero of=/data/ubuntu.img seek=500K bs=4096 count=0
-                        mkfs.ext2 -F /data/ubuntu.img
-                        ln /data/ubuntu.img /data/system.img
+                        rm -f /data/rootfs.img
+                        dd if=/dev/zero of=/data/rootfs.img seek=500K bs=4096 count=0
+                        mkfs.ext2 -F /data/rootfs.img
                     fi
                 ;;
 
                 data)
                     for entry in /data/* /data/.writable_image /data/.factory_wipe; do
                         if [ "$USE_SYSTEM_PARTITION" -eq 0 ];then
-                            if [ "$entry" == "/data/system.img" -o "$entry" == "/data/ubuntu.img" ]; then
+                            if [ "$entry" == "/data/rootfs.img" ]; then
                                     continue
                             fi
                         fi
@@ -419,11 +416,8 @@ do
                         check_filesystem $SYSTEM_PARTITION
                         mount $SYSTEM_PARTITION "$SYSTEM_MOUNTPOINT"
                     else
-                        if [ ! -e /data/ubuntu.img ]; then
-                            ln /data/system.img /data/ubuntu.img
-                        fi
-                        check_filesystem /data/ubuntu.img
-                        mount -o loop /data/ubuntu.img "$SYSTEM_MOUNTPOINT/"
+                        check_filesystem /data/rootfs.img
+                        mount -o loop /data/rootfs.img "$SYSTEM_MOUNTPOINT/"
                     fi
                 ;;
 
@@ -463,6 +457,7 @@ do
             echo "Applying update: $2"
             cd /cache
             rm -Rf partitions
+            rm -Rf data  || true
 
             # Start by removing any file listed in "removed"
             if [ "$FULL_IMAGE" != "1" ]; then
@@ -478,6 +473,9 @@ do
             # Unpack everything else on top of the system partition
             cat recovery/$2 | unxz | tar xf -
             rm -f removed
+
+            # Move things to data
+            mv data/* /data/ || true
 
             # Process partition images
             grep "^/dev" /etc/recovery.fstab | while read line; do
@@ -532,8 +530,8 @@ fi
 
 # Ensure we have sane permissions
 if [ "$USE_SYSTEM_PARTITION" -eq 0 ];then
-    chmod 600 /data/ubuntu.img
-    chown 0:0 /data/ubuntu.img
+    chmod 600 /data/rootfs.img
+    chown 0:0 /data/rootfs.img
 fi
 chmod 600 /data/SWAP.img
 chown 0:0 /data/SWAP.img
