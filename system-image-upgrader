@@ -492,6 +492,16 @@ do
                     rm partitions/${part}.img
                 fi
             done
+            if [ -e partitions/basepath.txt ]; then
+            basepath=$(cat partitions/basepath.txt)
+            ls partitions/*.newimg | while read line; do
+                basename=$(basename -- "$line")
+                path=${basepath}/${basename%.*}
+                echo "Flashing ${line} at ${path}"
+                cat ${line} > ${path}
+                rm ${line}
+                done
+            fi
         ;;
 
         *)
