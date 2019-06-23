@@ -100,24 +100,65 @@ static const menu ADVANCED_MENU = {
     ADVANCED_MENU_ENTRIES
 };
 
-static const char* MAIN_MENU_NAMES[] = {
+static const char* ANDROID_MENU_NAMES[] = {
     "Reboot system now",
     "Apply update",
     "Factory reset",
     "Advanced",
     nullptr
 };
-static const menu_entry MAIN_MENU_ENTRIES[] = {
+static const menu_entry ANDROID_MENU_ENTRIES[] = {
     { ACTION_INVOKE, { .action = Device::REBOOT } },
     { ACTION_INVOKE, { .action = Device::APPLY_UPDATE } },
     { ACTION_SUBMENU, { .submenu = &WIPE_MENU } },
     { ACTION_SUBMENU, { .submenu = &ADVANCED_MENU } },
     { ACTION_NONE, { .action = Device::NO_ACTION } }
 };
+static const menu ANDROID_MENU = {
+    ANDROID_MENU_NAMES,
+    ANDROID_MENU_ENTRIES
+};
+
+static const char* UBUNTU_MENU_NAMES[] = {
+    "Reboot system now",
+    "Replace ubuntu android system",
+    "Install ubuntu zip",
+    "Install ubuntu preinstalled",
+    "Wipe data/factory reset",
+    nullptr
+};
+static const menu_entry UBUNTU_MENU_ENTRIES[] = {
+    { ACTION_INVOKE, { .action = Device::REBOOT } },
+    { ACTION_INVOKE, { .action = Device::REPLACE_SYSTEM } },
+    { ACTION_INVOKE, { .action = Device::INSTALL_UBUNTU_ZIP } },
+    { ACTION_INVOKE, { .action = Device::INSTALL_UBUNTU_ROOTSTOCK } },
+    { ACTION_INVOKE, { .action = Device::WIPE_DATA_UBUNTU } },
+    { ACTION_NONE, { .action = Device::NO_ACTION } }
+};
+
+static const menu UBUNTU_MENU = {
+    UBUNTU_MENU_NAMES,
+    UBUNTU_MENU_ENTRIES
+};
+
+static const char* MAIN_MENU_NAMES[] = {
+    "Reboot system now",
+    "Ubuntu actions",
+    "Android actions",
+    nullptr
+};
+static const menu_entry MAIN_MENU_ENTRIES[] = {
+    { ACTION_INVOKE, { .action = Device::REBOOT } },
+    { ACTION_SUBMENU, { .submenu = &UBUNTU_MENU } },
+    { ACTION_SUBMENU, { .submenu = &ANDROID_MENU } },
+    { ACTION_NONE, { .action = Device::NO_ACTION } }
+};
+
 static const menu MAIN_MENU = {
     MAIN_MENU_NAMES,
     MAIN_MENU_ENTRIES
 };
+
 
 Device::Device(RecoveryUI* ui) :
         ui_(ui) {

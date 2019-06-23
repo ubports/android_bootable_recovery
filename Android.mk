@@ -111,7 +111,8 @@ LOCAL_STATIC_LIBRARIES := \
     libext2_uuid \
     libfec \
     libfec_rs \
-    libsquashfs_utils
+    libsquashfs_utils \
+    libcrecovery
 
 LOCAL_HAL_STATIC_LIBRARIES := libhealthd
 LOCAL_WHOLE_STATIC_LIBRARIES += libcutils
@@ -152,6 +153,7 @@ LOCAL_REQUIRED_MODULES := recovery-persist recovery-refresh
 endif
 
 LOCAL_C_INCLUDES += system/extras/ext4_utils
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_C_INCLUDES += external/boringssl/include
 
 ifeq ($(ONE_SHOT_MAKEFILE),)
@@ -253,6 +255,7 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmake_ext4fs_static
 LOCAL_MODULE_TAGS := optional
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_CFLAGS := -Dmain=make_ext4fs_main
 LOCAL_SRC_FILES := \
     ../../system/extras/ext4_utils/make_ext4fs_main.c \
@@ -260,12 +263,53 @@ LOCAL_SRC_FILES := \
 LOCAL_STATIC_LIBRARIES += libselinux
 include $(BUILD_STATIC_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := system-image-upgrader
+LOCAL_MODULE_TAGS := optional eng debug
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := replace-system
+LOCAL_MODULE_TAGS := optional eng debug
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := install-system
+LOCAL_MODULE_TAGS := optional eng debug
+LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := archive-master.tar.xz
+LOCAL_MODULE_TAGS := optional eng debug
+LOCAL_MODULE_CLASS := RECOVERY_ETC
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
+LOCAL_SRC_FILES := archive-master.tar.xz
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := archive-master.tar.xz.asc
+LOCAL_MODULE_TAGS := optional eng debug
+LOCAL_MODULE_CLASS := RECOVERY_ETC
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
+LOCAL_SRC_FILES := archive-master.tar.xz.asc
+include $(BUILD_PREBUILT)
+
 # Minizip static library
 include $(CLEAR_VARS)
 LOCAL_MODULE := libminizip_static
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Dmain=minizip_main -D__ANDROID__ -DIOAPI_NO_64 -Wno-unknown-attributes
 LOCAL_C_INCLUDES := external/zlib
+LOCAL_C_INCLUDES += external/lz4/lib
 LOCAL_SRC_FILES := \
     ../../external/zlib/src/contrib/minizip/ioapi.c \
     ../../external/zlib/src/contrib/minizip/minizip.c \
@@ -329,6 +373,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include \
     $(LOCAL_PATH)/applypatch/Android.mk \
+    $(LOCAL_PATH)/libcrecovery/Android.mk \
     $(LOCAL_PATH)/bootloader_message/Android.mk \
     $(LOCAL_PATH)/edify/Android.mk \
     $(LOCAL_PATH)/minui/Android.mk \

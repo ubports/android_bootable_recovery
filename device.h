@@ -74,6 +74,10 @@ class Device : public VoldWatcher {
         MOUNT_SYSTEM,
         RUN_GRAPHICS_TEST,
         WIPE_SYSTEM,
+        WIPE_DATA_UBUNTU,
+        REPLACE_SYSTEM, 
+        INSTALL_UBUNTU_ZIP, 
+        INSTALL_UBUNTU_ROOTSTOCK,
     };
 
     // Return the list of menu items (an array of strings,
