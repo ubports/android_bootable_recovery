@@ -66,6 +66,7 @@
 #include "ui.h"
 #include "unique_fd.h"
 #include "screen_ui.h"
+#include "ubupdater.h"
 
 #include "voldclient.h"
 
@@ -638,7 +639,6 @@ finish_recovery(const char *send_intent) {
         if (ensure_path_mounted(COMMAND_FILE) != 0 || (unlink(COMMAND_FILE) && errno != ENOENT)) {
             LOGW("Can't unlink %s\n", COMMAND_FILE);
         }
-        ensure_path_unmounted(CACHE_ROOT);
     }
 
     sync();  // For good measure.
@@ -1518,6 +1518,8 @@ prompt_and_wait(Device* device, int status) {
         Device::BuiltinAction chosen_action = device->InvokeMenuItem(chosen_item);
 
         bool should_wipe_cache = false;
+        
+        
         for (;;) {
             switch (chosen_action) {
                 case Device::NO_ACTION:
@@ -2028,6 +2030,12 @@ int main(int argc, char **argv) {
     // Set background string to "installing security update" for security update,
     // otherwise set it to "installing system update".
     ui->SetSystemUpdateText(security_update);
+    
+    // If ubuntu_command file exists, run ubuntu update
+    if (access(UBUNTU_COMMAND_FILE, F_OK) != -1 )
+        update_ubuntu_package = UBUNTU_UPDATE_SCRIPT;
+
+
 
     int st_cur, st_max;
     if (stage != NULL && sscanf(stage, "%d/%d", &st_cur, &st_max) == 2) {
@@ -2051,6 +2059,8 @@ int main(int argc, char **argv) {
     }
 
     device->StartRecovery();
+    
+    __system("mount -a");
 
     printf("Command:");
     for (arg = 0; arg < argc; arg++) {
@@ -2148,14 +2158,8 @@ int main(int argc, char **argv) {
             }
         }
     } else if (update_ubuntu_package != NULL) {
-        LOGI("Performing Ubuntu update");
-        ui->SetBackground(RecoveryUI::INSTALLING_UPDATE);
-        ui->Print("Installing Ubuntu update.\n");
-        char tmp[PATH_MAX];
-        sprintf(tmp, "%s %s", UBUNTU_UPDATE_SCRIPT, UBUNTU_COMMAND_FILE );
-        __system(tmp);
-        LOGI("Ubuntu update complete");
-        ui->Print("Ubuntu update complete.\n");
+        if (access(UBUNTU_COMMAND_FILE, F_OK) != -1 )
+            status = do_ubuntu_update(ui);
     } else if (should_wipe_data) {
         if (!wipe_data(false, device, should_wipe_media)) {
             status = INSTALL_ERROR;
@@ -2204,7 +2208,9 @@ int main(int argc, char **argv) {
     if (!sideload_auto_reboot && (status == INSTALL_ERROR || status == INSTALL_CORRUPT)) {
         copy_logs();
         ui->SetBackground(RecoveryUI::ERROR);
+        ui->Print("Update failed, please reboot and try again...");
     }
+
 
     Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
     if ((status != INSTALL_SUCCESS && status != INSTALL_SKIPPED && !sideload_auto_reboot) ||

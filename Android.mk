@@ -35,6 +35,7 @@ LOCAL_SRC_FILES := \
     adb_install.cpp \
     asn1_decoder.cpp \
     device.cpp \
+    ubupdater.cpp \
     fuse_sdcard_provider.cpp \
     install.cpp \
     recovery.cpp \
@@ -169,13 +170,20 @@ TOYBOX_INSTLIST := $(HOST_OUT_EXECUTABLES)/toybox-instlist
 
 # Set up the static symlinks
 RECOVERY_TOOLS := \
-    gunzip gzip make_ext4fs minivold reboot setup_adbd sh start stop toybox unzip vdc zip
+    gunzip gzip make_ext4fs minivold reboot setup_adbd sh start stop toybox unzip vdc zip mktemp gpg
 LOCAL_POST_INSTALL_CMD := \
 	$(hide) $(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);)
 
 ifneq ($(TARGET_RECOVERY_DEVICE_MODULES),)
     LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_RECOVERY_DEVICE_MODULES)
 endif
+    
+LOCAL_ADDITIONAL_DEPENDENCIES += \
+		system-image-upgrader \
+		replace-system \
+		install-system \
+		archive-master.tar.xz \
+		archive-master.tar.xz.asc
 
 include $(BUILD_EXECUTABLE)
 
