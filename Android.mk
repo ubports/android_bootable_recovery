@@ -176,9 +176,9 @@ RECOVERY_BUSYBOX_SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(fil
 RECOVERY_TOOLS := \
     make_ext4fs minivold reboot getprop setprop sh setup_adbd start stop vdc
 LOCAL_POST_INSTALL_CMD := \
-	cp -f $(PRODUCT_OUT)/utilities/busybox $(TARGET_RECOVERY_ROOT_OUT)/sbin/busybox \
 	$(foreach t,$(RECOVERY_BUSYBOX_SYMLINKS),ln -sf busybox $(t);) \
-	$(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);)
+	$(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);) \
+	cp -f $(PRODUCT_OUT)/utilities/busybox $(TARGET_RECOVERY_ROOT_OUT)/sbin/busybox
 
 
 ifneq ($(TARGET_RECOVERY_DEVICE_MODULES),)
