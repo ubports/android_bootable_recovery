@@ -162,17 +162,24 @@ LOCAL_ADDITIONAL_DEPENDENCIES += \
     fstools \
     recovery_mkshrc \
     bu_recovery \
-    toybox_recovery_links
+    busybox_links \
+    static_busybox
 
 endif
 
-TOYBOX_INSTLIST := $(HOST_OUT_EXECUTABLES)/toybox-instlist
-
 # Set up the static symlinks
+
+BUSYBOX_LINKS := $(shell cat external/busybox/busybox-full.links)
+exclude := tune2fs mke2fs
+RECOVERY_BUSYBOX_SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(filter-out $(exclude),$(notdir $(BUSYBOX_LINKS))))
+
 RECOVERY_TOOLS := \
-    gunzip gzip make_ext4fs minivold reboot setup_adbd sh start stop toybox unzip vdc zip mktemp gpg
+    make_ext4fs minivold reboot getprop setprop sh setup_adbd start stop vdc
 LOCAL_POST_INSTALL_CMD := \
-	$(hide) $(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);)
+	cp -f $(PRODUCT_OUT)/utilities/busybox $(TARGET_RECOVERY_ROOT_OUT)/sbin/busybox \
+	$(foreach t,$(RECOVERY_BUSYBOX_SYMLINKS),ln -sf busybox $(t);) \
+	$(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);)
+
 
 ifneq ($(TARGET_RECOVERY_DEVICE_MODULES),)
     LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_RECOVERY_DEVICE_MODULES)
@@ -186,14 +193,6 @@ LOCAL_ADDITIONAL_DEPENDENCIES += \
 		archive-master.tar.xz.asc
 
 include $(BUILD_EXECUTABLE)
-
-# Run toybox-instlist and generate the rest of the symlinks
-toybox_recovery_links: $(TOYBOX_INSTLIST)
-toybox_recovery_links: TOYBOX_BINARY := $(TARGET_RECOVERY_ROOT_OUT)/sbin/toybox
-toybox_recovery_links:
-	@echo -e ${CL_CYN}"Generate Toybox links:"${CL_RST} $$($(TOYBOX_INSTLIST))
-	@mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/sbin
-	$(hide) $(TOYBOX_INSTLIST) | xargs -I'{}' ln -sf toybox '$(TARGET_RECOVERY_ROOT_OUT)/sbin/{}'
 
 # mkshrc
 include $(CLEAR_VARS)
