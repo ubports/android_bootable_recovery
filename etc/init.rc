@@ -3,7 +3,6 @@ import /init.recovery.${ro.hardware}.rc
 on early-init
     # Fix sbin permissions
     chmod 755 /sbin
-    chmod 755 /sbin/sh
     chmod 755 /sbin/toybox
     chmod 755 /sbin/busybox
     chmod 755 /sbin/recovery
