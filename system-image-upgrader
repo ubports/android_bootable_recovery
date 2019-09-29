@@ -88,7 +88,7 @@ install_keyring() {
     # Unpacking
     TMPDIR=$(mktemp -dt -p /tmp/system-image/ tmp.XXXXXXXXXX)
     cd $TMPDIR
-    cat $1 | unxz | tar xf -
+    xzcat $1 | tar --numeric-owner -xf -
     if [ ! -e keyring.json ] || [ ! -e keyring.gpg ]; then
         rm -Rf $TMPDIR
         echo "Invalid keyring: $1"
@@ -267,7 +267,15 @@ fi
 # Initialize recovery SWAP
 ## Without a swap some systems will fail to install the ubuntu rootfs (due its size)
 if [ ! -e /cache/recovery/SWAP.img ]; then
-    dd if=/dev/zero of=/cache/recovery/SWAP.img bs=4096 count=8192
+    # Determine size based on device maintainer preference, set in the kernel
+    # cmdline. This falls back to using 32MB for the total swap file size.
+    if grep -q siu.swapsize= /proc/cmdline; then
+        swap_size=$(cat /proc/cmdline | sed "s/ /\n/g" | grep siu.swapsize= | awk -F "=" '{ print $2 }')
+    else
+        swap_size=32
+    fi
+    echo "Swap size: $swap_size MB"
+    dd if=/dev/zero of=/cache/recovery/SWAP.img bs=1M count=$swap_size
     mkswap /cache/recovery/SWAP.img
 fi
 swapon /cache/recovery/SWAP.img
@@ -303,7 +311,9 @@ do
                 system)
                     FULL_IMAGE=1
                     if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
-                        make.ext4fs $SYSTEM_PARTITION
+                        echo "system partition: $SYSTEM_PARTITION"
+                        umount /system || true
+                        make_ext4fs $SYSTEM_PARTITION
                     else
                         #system.img is the deprecated name for ubuntu.img, handle that too
                         rm -f /data/system.img
@@ -321,6 +331,22 @@ do
                                     continue
                             fi
                         fi
+
+                        # Some devices use /data as /cache, so avoid removing
+                        # files that are essential to flashing and upgrading
+                        if [ "$entry" == "/data/recovery" ]; then
+                            continue
+                        fi
+                        if [ "$entry" == "/data/system-image-upgrader.log" ]; then
+                            continue
+                        fi
+                        if [ "$entry" == "/data/test.log" ]; then
+                            continue
+                        fi
+                        if [ "$entry" == "/data/ubuntu_updater.log" ]; then
+                            continue
+                        fi
+
                         rm -Rf $entry
                     done
                     # mtp is always enabled by default
@@ -466,7 +492,7 @@ do
 
             # Start by removing any file listed in "removed"
             if [ "$FULL_IMAGE" != "1" ]; then
-                cat recovery/$2 | unxz | tar xf - removed >/dev/null 2>&1 || true
+                xzcat recovery/$2 | tar --numeric-owner -xf - removed >/dev/null 2>&1 || true
                 if [ -e removed ]; then
                     while read file; do
                         rm -Rf $file
@@ -476,7 +502,7 @@ do
             fi
 
             # Unpack everything else on top of the system partition
-            cat recovery/$2 | unxz | tar xf -
+            xzcat recovery/$2 | tar --numeric-owner -xf -
             rm -f removed
 
             # Process partition images
