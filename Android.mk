@@ -163,7 +163,8 @@ LOCAL_ADDITIONAL_DEPENDENCIES += \
     recovery_mkshrc \
     bu_recovery \
     busybox_links \
-    static_busybox
+    static_busybox \
+    static_gpg
 
 endif
 
@@ -174,7 +175,7 @@ exclude := tune2fs mke2fs
 RECOVERY_BUSYBOX_SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(filter-out $(exclude),$(notdir $(BUSYBOX_LINKS))))
 
 RECOVERY_TOOLS := \
-    make_ext4fs minivold reboot getprop setprop sh setup_adbd start stop vdc
+    make_ext4fs minivold reboot toybox tar getprop setprop sh setup_adbd start stop vdc
 LOCAL_POST_INSTALL_CMD := \
 	$(foreach t,$(RECOVERY_BUSYBOX_SYMLINKS),ln -sf busybox $(t);) \
 	$(foreach t,$(RECOVERY_TOOLS),ln -sf recovery $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);) \
@@ -393,6 +394,7 @@ include \
     $(LOCAL_PATH)/uncrypt/Android.mk \
     $(LOCAL_PATH)/updater/Android.mk \
     $(LOCAL_PATH)/update_verifier/Android.mk \
-    $(LOCAL_PATH)/fstools/Android.mk
+    $(LOCAL_PATH)/fstools/Android.mk \
+    external/gpg/Android.mk
 
 endif
