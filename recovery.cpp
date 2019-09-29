@@ -1681,6 +1681,10 @@ setup_adbd() {
     }
     ensure_path_unmounted("/data");
 
+    // Ensure that adbd gets started with root privileges
+    property_set("ro_debuggable", "1");
+    property_set("service.adb.root", "1");
+
     // Trigger (re)start of adb daemon
     property_set("cm.service.adb.root", "1");
 }
