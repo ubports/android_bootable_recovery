@@ -122,6 +122,10 @@ ifeq ($(AB_OTA_UPDATER),true)
     LOCAL_CFLAGS += -DAB_OTA_UPDATER=1
 endif
 
+ifeq ($(HALIUM_DATA_AS_CACHE),true)
+    LOCAL_CFLAGS += -DHALIUM_DATA_AS_CACHE=1
+endif
+
 # OEMLOCK support requires a device specific liboemlock be supplied.
 # See comments in recovery.cpp for the API.
 ifeq ($(TARGET_HAVE_OEMLOCK), true)

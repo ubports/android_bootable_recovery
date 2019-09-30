@@ -103,14 +103,18 @@ static const menu ADVANCED_MENU = {
 static const char* ANDROID_MENU_NAMES[] = {
     "Reboot system now",
     "Apply update",
+#ifndef HALIUM_DATA_AS_CACHE
     "Factory reset",
+#endif
     "Advanced",
     nullptr
 };
 static const menu_entry ANDROID_MENU_ENTRIES[] = {
     { ACTION_INVOKE, { .action = Device::REBOOT } },
     { ACTION_INVOKE, { .action = Device::APPLY_UPDATE } },
+#ifndef HALIUM_DATA_AS_CACHE
     { ACTION_SUBMENU, { .submenu = &WIPE_MENU } },
+#endif
     { ACTION_SUBMENU, { .submenu = &ADVANCED_MENU } },
     { ACTION_NONE, { .action = Device::NO_ACTION } }
 };
