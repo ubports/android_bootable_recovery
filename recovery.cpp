@@ -953,9 +953,11 @@ static bool wipe_data(int should_confirm, Device* device, bool force = false) {
 retry:
     success =
         device->PreWipeData() &&
-        erase_volume("/data", force) &&
-        (has_cache ? erase_volume("/cache") : true) &&
-        device->PostWipeData();
+        erase_volume("/data", force)
+#ifndef HALIUM_DATA_AS_CACHE
+        && (has_cache ? erase_volume("/cache") : true)
+#endif
+        && device->PostWipeData();
     if (!success && !force) {
         if (!should_confirm || yes_no(device, "Wipe failed, format instead?", "  THIS CAN NOT BE UNDONE!")) {
             force = true;
@@ -984,6 +986,10 @@ static bool wipe_media(int should_confirm, Device* device) {
 
 // Return true on success.
 static bool wipe_cache(bool should_confirm, Device* device) {
+#ifdef HALIUM_DATA_AS_CACHE
+    return false;
+#endif
+
     if (!has_cache) {
         ui->Print("No /cache partition found.\n");
         return false;
@@ -1429,7 +1435,10 @@ wipe_data_ubuntu(Device* device) {
     __system("mount /data");
     __system("rm -r /data/system-data");
     __system("rm -r /data/user-data");
+
+#ifndef HALIUM_DATA_AS_CACHE
     erase_volume("/cache");
+#endif
     ui->Print("Data wipe complete.\n");
 }
 
@@ -2101,7 +2110,9 @@ int main(int argc, char **argv) {
     if (oem_lock == OEM_LOCK_UNLOCK) {
         device->PreWipeData();
         if (erase_volume("/data", true)) status = INSTALL_ERROR;
+#ifndef HALIUM_DATA_AS_CACHE
         if (should_wipe_cache && erase_volume("/cache", true)) status = INSTALL_ERROR;
+#endif
         device->PostWipeData();
         if (status != INSTALL_SUCCESS) ui->Print("Data wipe failed.\n");
         if (oemlock_set(0)) status = INSTALL_ERROR;
