@@ -331,16 +331,7 @@ do
 
                         # Some devices use /data as /cache, so avoid removing
                         # files that are essential to flashing and upgrading
-                        if [ "$entry" == "/data/recovery" ]; then
-                            continue
-                        fi
-                        if [ "$entry" == "/data/system-image-upgrader.log" ]; then
-                            continue
-                        fi
-                        if [ "$entry" == "/data/test.log" ]; then
-                            continue
-                        fi
-                        if [ "$entry" == "/data/ubuntu_updater.log" ]; then
+                        if [ "$entry" == "/data/cache" ]; then
                             continue
                         fi
 
