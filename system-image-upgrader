@@ -433,6 +433,8 @@ do
                 system)
                     mkdir -p "$SYSTEM_MOUNTPOINT"
                     if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
+                        umount $SYSTEM_PARTITION || true
+                        umount $SYSTEM_MOUNTPOINT || true
                         check_filesystem $SYSTEM_PARTITION
                         mount $SYSTEM_PARTITION "$SYSTEM_MOUNTPOINT"
                     else
