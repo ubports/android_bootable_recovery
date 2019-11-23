@@ -76,7 +76,7 @@ ScreenRecoveryUI::ScreenRecoveryUI() :
     loop_frames(0),
     current_frame(0),
     intro_done(false),
-    animation_fps(30), // TODO: there's currently no way to infer this.
+    animation_fps(4), // TODO: there's currently no way to infer this.
     stage(-1),
     max_stage(-1),
     updateMutex(PTHREAD_MUTEX_INITIALIZER),
