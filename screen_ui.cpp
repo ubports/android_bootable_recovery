@@ -301,7 +301,7 @@ void ScreenRecoveryUI::draw_screen_locked() {
             property_get("ro.bootimage.build.fingerprint", recovery_fingerprint, "");
 
             SetColor(INFO);
-            DrawTextLine(TEXT_INDENT, &y, "Android Recovery", true);
+            DrawTextLine(TEXT_INDENT, &y, "Ubports Recovery", true);
             for (auto& chunk : android::base::Split(recovery_fingerprint, ":")) {
                 DrawTextLine(TEXT_INDENT, &y, chunk.c_str(), false);
             }
