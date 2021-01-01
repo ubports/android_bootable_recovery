@@ -43,6 +43,10 @@ check_filesystem() {
 verify_signature() {
     # $1 => validation keyring name
     # $2 => path to validate
+    if [ -e /etc/system-image/skip-gpg-verification ]; then
+        echo "Skipping GPG verification"
+        return 0
+    fi
 
     if [ ! -e $2 ]; then
         echo "File doesn't exist: $2"
