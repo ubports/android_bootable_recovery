@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,179 +17,128 @@
 
 #include "device.h"
 
-enum menu_action_type {
-    ACTION_NONE,
-    ACTION_SUBMENU,
-    ACTION_INVOKE
-};
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof(*(A)))
 
-struct menu_entry;
-struct menu {
-    const char**        names;
-    const menu_entry*   entries;
+// *** Main menu ***
+static const menu_type_t MAIN_MENU_TYPE = MT_GRID;
+static const MenuItem MAIN_MENU_ITEMS[] = {
+  MenuItem("Reboot", "ic_reboot", "ic_reboot_sel"),
+  MenuItem("Factory reset", "ic_factory_reset", "ic_factory_reset_sel"),
+  MenuItem("Advanced", "ic_options_advanced", "ic_options_advanced_sel"),
 };
+static const MenuItemVector main_menu_items_ =
+    MenuItemVector(MAIN_MENU_ITEMS, MAIN_MENU_ITEMS + ARRAY_SIZE(MAIN_MENU_ITEMS));
+static const Device::BuiltinAction MAIN_MENU_ACTIONS[] = {
+  Device::REBOOT,
+  Device::WIPE_MENU,
+  Device::ADVANCED_MENU,
+};
+static const Device::MenuActionVector main_menu_actions_ =
+    Device::MenuActionVector(MAIN_MENU_ACTIONS, MAIN_MENU_ACTIONS + ARRAY_SIZE(MAIN_MENU_ACTIONS));
+static_assert(ARRAY_SIZE(MAIN_MENU_ITEMS) == ARRAY_SIZE(MAIN_MENU_ACTIONS),
+              "MAIN_MENU_ITEMS and MAIN_MENU_ACTIONS should have the same length.");
 
-union menu_action {
-    const menu*                 submenu;
-    Device::BuiltinAction       action;
-};
-
-struct menu_entry {
-    menu_action_type    action_type;
-    const menu_action   action;
-};
-
-static const char* WIPE_MENU_NAMES[] = {
-#ifndef RELEASE_BUILD
-    "Wipe data (keep media)",
-#endif
-    "Full factory reset",
-#if !defined(AB_OTA_UPDATER) && !defined(HALIUM_DATA_AS_CACHE)
-    "Wipe cache partition",
-#endif  // !AB_OTA_UPDATER
-    nullptr
-};
-static const menu_entry WIPE_MENU_ENTRIES[] = {
-#ifndef RELEASE_BUILD
-    { ACTION_INVOKE, { .action = Device::WIPE_DATA } },
-#endif
-    { ACTION_INVOKE, { .action = Device::WIPE_FULL } },
+// *** Wipe menu ***
+static const menu_type_t WIPE_MENU_TYPE = MT_LIST;
+static const MenuItem WIPE_MENU_ITEMS[] = {
+  MenuItem("Wipe data / factory reset"),
 #ifndef AB_OTA_UPDATER
-    { ACTION_INVOKE, { .action = Device::WIPE_CACHE } },
-#endif  // !AB_OTA_UPDATER
-    { ACTION_NONE, { .action = Device::NO_ACTION } }
+  MenuItem("Wipe cache"),
+#endif
+  MenuItem("Wipe system"),
 };
-static const menu WIPE_MENU = {
-    WIPE_MENU_NAMES,
-    WIPE_MENU_ENTRIES
+static const MenuItemVector wipe_menu_items_ =
+    MenuItemVector(WIPE_MENU_ITEMS, WIPE_MENU_ITEMS + ARRAY_SIZE(WIPE_MENU_ITEMS));
+static const Device::BuiltinAction WIPE_MENU_ACTIONS[] = {
+  Device::WIPE_DATA,
+#ifndef AB_OTA_UPDATER
+  Device::WIPE_CACHE,
+#endif
+  Device::WIPE_SYSTEM,
 };
+static const Device::MenuActionVector wipe_menu_actions_ =
+    Device::MenuActionVector(WIPE_MENU_ACTIONS, WIPE_MENU_ACTIONS + ARRAY_SIZE(WIPE_MENU_ACTIONS));
+static_assert(ARRAY_SIZE(WIPE_MENU_ITEMS) == ARRAY_SIZE(WIPE_MENU_ACTIONS),
+              "WIPE_MENU_ITEMS and WIPE_MENU_ACTIONS should have the same length.");
 
-static const char* ADVANCED_MENU_NAMES[] = {
-    "Reboot recovery",
+// *** Advanced menu
+static const menu_type_t ADVANCED_MENU_TYPE = MT_LIST;
+
+static const MenuItem ADVANCED_MENU_ITEMS[] = {
 #ifdef DOWNLOAD_MODE
-    "Reboot to download mode",
+  MenuItem("Reboot to download mode"),
 #else
-    "Reboot to bootloader",
+  MenuItem("Reboot to bootloader"),
 #endif
-#ifndef RELEASE_BUILD
-    "Mount /system",
-    "Wipe system partition",
+  MenuItem("Reboot to recovery"),
+  MenuItem("Mount system"),
+  MenuItem("View logs"),
+#ifdef SHOW_TESTS
+  MenuItem("Run graphics test"),
+  MenuItem("Run locale test"),
 #endif
-    "View recovery logs",
-    "Run graphics test",
-    "Power off",
-    nullptr
+  MenuItem("Power off"),
 };
-static const menu_entry ADVANCED_MENU_ENTRIES[] = {
-    { ACTION_INVOKE, { .action = Device::REBOOT_RECOVERY } },
-#ifdef DOWNLOAD_MODE
-    { ACTION_INVOKE, { .action = Device::REBOOT_BOOTLOADER } },
-#else
-    { ACTION_INVOKE, { .action = Device::REBOOT_BOOTLOADER } },
+static const MenuItemVector advanced_menu_items_ =
+    MenuItemVector(ADVANCED_MENU_ITEMS, ADVANCED_MENU_ITEMS + ARRAY_SIZE(ADVANCED_MENU_ITEMS));
+
+static const Device::BuiltinAction ADVANCED_MENU_ACTIONS[] = {
+  Device::REBOOT_BOOTLOADER,
+  Device::REBOOT_RECOVERY,
+  Device::MOUNT_SYSTEM,
+  Device::VIEW_RECOVERY_LOGS,
+#ifdef SHOW_TESTS
+  Device::RUN_GRAPHICS_TEST,
+  Device::RUN_LOCALE_TEST,
 #endif
-#ifndef RELEASE_BUILD
-    { ACTION_INVOKE, { .action = Device::MOUNT_SYSTEM } },
-    { ACTION_INVOKE, { .action = Device::WIPE_SYSTEM } },
-#endif
-    { ACTION_INVOKE, { .action = Device::VIEW_RECOVERY_LOGS } },
-    { ACTION_INVOKE, { .action = Device::RUN_GRAPHICS_TEST } },
-    { ACTION_INVOKE, { .action = Device::SHUTDOWN } },
-    { ACTION_NONE, { .action = Device::NO_ACTION } }
+  Device::SHUTDOWN,
 };
-static const menu ADVANCED_MENU = {
-    ADVANCED_MENU_NAMES,
-    ADVANCED_MENU_ENTRIES
-};
+static const Device::MenuActionVector advanced_menu_actions_ = Device::MenuActionVector(
+    ADVANCED_MENU_ACTIONS, ADVANCED_MENU_ACTIONS + ARRAY_SIZE(ADVANCED_MENU_ACTIONS));
 
-static const char* ANDROID_MENU_NAMES[] = {
-    "Reboot system now",
-    "Apply update",
-    "Factory reset",
-    "Advanced",
-    nullptr
-};
-static const menu_entry ANDROID_MENU_ENTRIES[] = {
-    { ACTION_INVOKE, { .action = Device::REBOOT } },
-    { ACTION_INVOKE, { .action = Device::APPLY_UPDATE } },
-    { ACTION_SUBMENU, { .submenu = &WIPE_MENU } },
-    { ACTION_SUBMENU, { .submenu = &ADVANCED_MENU } },
-    { ACTION_NONE, { .action = Device::NO_ACTION } }
-};
-static const menu ANDROID_MENU = {
-    ANDROID_MENU_NAMES,
-    ANDROID_MENU_ENTRIES
-};
+static_assert(ARRAY_SIZE(ADVANCED_MENU_ITEMS) == ARRAY_SIZE(ADVANCED_MENU_ACTIONS),
+              "ADVANCED_MENU_ITEMS and ADVANCED_MENU_ACTIONS should have the same length.");
 
-static const char* UBUNTU_MENU_NAMES[] = {
-    "Reboot system now",
-    "Replace ubuntu android system",
-    "Install ubuntu zip",
-    "Install ubuntu preinstalled",
-    "Wipe data/factory reset",
-    nullptr
-};
-static const menu_entry UBUNTU_MENU_ENTRIES[] = {
-    { ACTION_INVOKE, { .action = Device::REBOOT } },
-    { ACTION_INVOKE, { .action = Device::REPLACE_SYSTEM } },
-    { ACTION_INVOKE, { .action = Device::INSTALL_UBUNTU_ZIP } },
-    { ACTION_INVOKE, { .action = Device::INSTALL_UBUNTU_ROOTSTOCK } },
-    { ACTION_INVOKE, { .action = Device::WIPE_DATA_UBUNTU } },
-    { ACTION_NONE, { .action = Device::NO_ACTION } }
-};
-
-static const menu UBUNTU_MENU = {
-    UBUNTU_MENU_NAMES,
-    UBUNTU_MENU_ENTRIES
-};
-
-static const char* MAIN_MENU_NAMES[] = {
-    "Reboot system now",
-    "Ubuntu actions",
-    "Android actions",
-    nullptr
-};
-static const menu_entry MAIN_MENU_ENTRIES[] = {
-    { ACTION_INVOKE, { .action = Device::REBOOT } },
-    { ACTION_SUBMENU, { .submenu = &UBUNTU_MENU } },
-    { ACTION_SUBMENU, { .submenu = &ANDROID_MENU } },
-    { ACTION_NONE, { .action = Device::NO_ACTION } }
-};
-
-static const menu MAIN_MENU = {
-    MAIN_MENU_NAMES,
-    MAIN_MENU_ENTRIES
-};
-
-
-Device::Device(RecoveryUI* ui) :
-        ui_(ui) {
-    menu_stack.push(&MAIN_MENU);
-}
-
-const char* const* Device::GetMenuItems() {
-    const menu* m = menu_stack.top();
-    return m->names;
+Device::Device(RecoveryUI* ui) : ui_(ui) {
+  GoHome();
 }
 
 Device::BuiltinAction Device::InvokeMenuItem(int menu_position) {
   if (menu_position < 0) {
-    if (menu_position == Device::kGoBack) {
-        if (menu_stack.size() > 1) {
-            menu_stack.pop();
-        }
+    if (menu_position == Device::kGoBack || menu_position == Device::kGoHome) {
+      // Assume only two menu levels, so back is equivalent to home.
+      GoHome();
     }
     return NO_ACTION;
   }
-  const menu* m = menu_stack.top();
-  const menu_entry* entry = m->entries + menu_position;
-  if (entry->action_type == ACTION_SUBMENU) {
-      menu_stack.push(entry->action.submenu);
-      return NO_ACTION;
+  BuiltinAction action = menu_actions_.at(menu_position);
+  switch (action) {
+    case WIPE_MENU:
+      menu_is_main_ = false;
+      menu_type_ = WIPE_MENU_TYPE;
+      menu_items_ = wipe_menu_items_;
+      menu_actions_ = wipe_menu_actions_;
+      break;
+    case ADVANCED_MENU:
+      menu_is_main_ = false;
+      menu_type_ = ADVANCED_MENU_TYPE;
+      menu_items_ = advanced_menu_items_;
+      menu_actions_ = advanced_menu_actions_;
+      break;
+    default:
+      break;  // Fall through
   }
-  return entry->action.action;
+  return action;
 }
 
-int Device::HandleMenuKey(int key, int visible) {
+void Device::GoHome() {
+  menu_is_main_ = true;
+  menu_type_ = MAIN_MENU_TYPE;
+  menu_items_ = main_menu_items_;
+  menu_actions_ = main_menu_actions_;
+}
+
+int Device::HandleMenuKey(int key, bool visible) {
   if (!visible) {
     return kNoAction;
   }
@@ -206,17 +156,27 @@ int Device::HandleMenuKey(int key, int visible) {
     case KEY_SEARCH:
       return kHighlightUp;
 
+    case KEY_SCROLLUP:
+      return kScrollUp;
+    case KEY_SCROLLDOWN:
+      return kScrollDown;
+
     case KEY_ENTER:
     case KEY_POWER:
     case BTN_MOUSE:
-    case KEY_HOME:
-    case KEY_HOMEPAGE:
     case KEY_SEND:
       return kInvokeItem;
+
+    case KEY_HOME:
+    case KEY_HOMEPAGE:
+      return kGoHome;
 
     case KEY_BACKSPACE:
     case KEY_BACK:
       return kGoBack;
+
+    case KEY_REFRESH:
+      return kRefresh;
 
     default:
       // If you have all of the above buttons, any other buttons

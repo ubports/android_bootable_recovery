@@ -1,24 +1,23 @@
 import /init.recovery.${ro.hardware}.rc
 
 on early-init
-    # Fix sbin permissions
-    chmod 755 /sbin
-    chmod 755 /sbin/toybox
-    chmod 755 /sbin/busybox
-    chmod 755 /sbin/recovery
-
     # Set the security context of /postinstall if present.
     restorecon /postinstall
 
     start ueventd
-    start healthd
+
+    setprop sys.usb.configfs 0
 
 on init
     export ANDROID_ROOT /system
     export ANDROID_DATA /data
     export EXTERNAL_STORAGE /sdcard
 
+    symlink /system/bin /bin
     symlink /system/etc /etc
+
+    mount cgroup none /acct cpuacct
+    mkdir /acct/uid
 
     mkdir /sdcard
     mkdir /system
@@ -30,44 +29,22 @@ on init
     chown root shell /tmp
     chmod 0775 /tmp
 
-    mkdir /mnt 0775 root system
     mkdir /storage 0050 root sdcard_r
     mount tmpfs tmpfs /storage mode=0050,uid=0,gid=1028
+
+    mkdir /mnt 0775 root system
 
     # See storage config details at http://source.android.com/tech/storage/
     mkdir /mnt/shell 0700 shell shell
 
-    # Directory for putting things only root should see.
-    mkdir /mnt/secure 0700 root root
-
-    # Create private mountpoint so we can MS_MOVE from staging
-    mount tmpfs tmpfs /mnt/secure mode=0700,uid=0,gid=0
-
     # Directory for staging bindmounts
-    mkdir /mnt/secure/staging 0700 root root
-
-    # Fuse public mount points.
-    mkdir /mnt/fuse 0700 root system
-    mount tmpfs tmpfs /mnt/fuse mode=0775,gid=1000
+    mkdir /mnt/staging 0700 root root
 
     write /proc/sys/kernel/panic_on_oops 1
     write /proc/sys/vm/max_map_count 1000000
 
-on fs
+    # pstore/ramoops previous console log
     mount pstore pstore /sys/fs/pstore
-
-    mkdir /dev/usb-ffs 0770 shell shell
-    mkdir /dev/usb-ffs/adb 0770 shell shell
-    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
-
-    write /sys/class/android_usb/android0/enable 0
-    write /sys/class/android_usb/android0/idVendor 18D1
-    write /sys/class/android_usb/android0/idProduct D001
-    write /sys/class/android_usb/android0/f_ffs/aliases adb
-    write /sys/class/android_usb/android0/functions adb
-    write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
-    write /sys/class/android_usb/android0/iProduct ${ro.product.model}
-    write /sys/class/android_usb/android0/iSerial ${ro.serialno}
 
 on boot
     ifup lo
@@ -107,54 +84,67 @@ on late-init
     trigger early-boot
     trigger boot
 
-on property:sys.powerctl=*
-   powerctl ${sys.powerctl}
-
 service ueventd /sbin/ueventd
     critical
     seclabel u:r:ueventd:s0
 
-service healthd /sbin/healthd -r
+service charger /charger -r
     critical
-    seclabel u:r:healthd:s0
+    seclabel u:r:charger:s0
 
 service recovery /sbin/recovery
     seclabel u:r:recovery:s0
 
-service setup_adbd /sbin/setup_adbd
-    oneshot
-    seclabel u:r:recovery:s0
-    disabled
-
-service adbd /sbin/adbd --root_seclabel=u:r:su:s0 --device_banner=recovery
+service adbd /sbin/adbd --device_banner=recovery
     disabled
     socket adbd stream 660 system system
     seclabel u:r:adbd:s0
 
-service vold /sbin/minivold \
-	--blkid_context=u:r:blkid:s0 --blkid_untrusted_context=u:r:blkid_untrusted:s0 \
-	--fsck_context=u:r:fsck:s0 --fsck_untrusted_context=u:r:fsck_untrusted:s0
-    socket vold stream 0660 root mount
-    socket cryptd stream 0660 root mount
-    ioprio be 2
-    setenv BLKID_FILE /tmp/vold_blkid.tab
-    seclabel u:r:vold:s0
+# Restart adbd so it can run as root
+on property:lineage.service.adb.root=1
+    restart adbd
 
 # setup_adbd will start adb once it has checked the keys
-on property:ro.debuggable=1
+on fs && property:ro.debuggable=1
     start setup_adbd
 
-on property:cm.service.adb.root=1
-    write /sys/class/android_usb/android0/enable 0
-    restart adbd
-    write /sys/class/android_usb/android0/enable 1
+on fs && property:sys.usb.configfs=1
+    mount configfs none /config
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18D1
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
+    write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+    mkdir /config/usb_gadget/g1/configs/b.1 0777 shell shell
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
 
-on property:sys.storage.ums_enabled=1
-    write /sys/class/android_usb/android0/enable 0
-    write /sys/class/android_usb/android0/functions adb,mass_storage
-    write /sys/class/android_usb/android0/enable 1
+on fs && property:sys.usb.configfs=0
+    write /sys/class/android_usb/android0/f_ffs/aliases adb
+    write /sys/class/android_usb/android0/idVendor 18D1
+    write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
+    write /sys/class/android_usb/android0/iProduct ${ro.product.model}
+    write /sys/class/android_usb/android0/iSerial ${ro.serialno}
 
-on property:sys.storage.ums_enabled=0
-    write /sys/class/android_usb/android0/enable 0
+on fs
+    mkdir /dev/usb-ffs 0775 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+
+on property:sys.usb.config=adb
+    start adbd
+
+on property:sys.usb.config=adb && property:sys.usb.configfs=0
+    write /sys/class/android_usb/android0/idProduct D001
     write /sys/class/android_usb/android0/functions adb
-    write /sys/class/android_usb/android0/enable ${cm.service.adb.root}
+    write /sys/class/android_usb/android0/enable 1
+    setprop sys.usb.state ${sys.usb.config}
+
+# Configfs trigger
+on property:sys.usb.config=adb && property:sys.usb.ffs.ready=1 && property:sys.usb.configfs=1
+    write /config/usb_gadget/g1/idProduct 0xD001
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "adb"
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
+    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
+    setprop sys.usb.state ${sys.usb.config}

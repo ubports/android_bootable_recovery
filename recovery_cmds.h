@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 The CyanogenMod Project
+ * Copyright (C) 2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,58 +18,44 @@
 #ifndef _RECOVERY_CMDS_H
 #define _RECOVERY_CMDS_H
 
-#include <stdio.h>
-#include <string.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int vold_main(int argc, char **argv);
-int minizip_main(int argc, char **argv);
-int miniunz_main(int argc, char **argv);
-int make_ext4fs_main(int argc, char **argv);
-int reboot_main(int argc, char **argv);
-int poweroff_main(int argc, char **argv);
-int fsck_msdos_main(int argc, char **argv);
-int newfs_msdos_main(int argc, char **argv);
-int pigz_main(int argc, char **argv);
-int start_main(int argc, char **argv);
-int stop_main(int argc, char **argv);
-int mksh_main(int argc, char **argv);
-int vdc_main(int argc, char **argv);
+int pigz_main(int argc, char** argv);
+int miniunz_main(int argc, char** argv);
+int minizip_main(int argc, char** argv);
+int reboot_main(int argc, char** argv);
+int poweroff_main(int argc, char** argv);
+int start_main(int argc, char** argv);
+int stop_main(int argc, char** argv);
+int mksh_main(int argc, char** argv);
+int awk_main(int argc, char** argv);
 
-int toybox_driver(int argc, char **argv);
+/* Filesystem tools */
+int e2fsdroid_main(int argc, char** argv);
 
-struct recovery_cmd {
-    const char *name;
-    int (*main_func)(int argc, char **argv);
-};
+int mke2fs_main(int argc, char** argv);
+int e2fsck_main(int argc, char** argv);
+int resize2fs_main(int argc, char** argv);
+int tune2fs_main(int argc, char** argv);
 
-static const struct recovery_cmd recovery_cmds[] = {
-    { "minivold",       vold_main },
-    { "minizip",        minizip_main },
-    { "make_ext4fs",    make_ext4fs_main },
-    { "reboot",         reboot_main },
-    { "poweroff",       reboot_main },
-    { "fsck_msdos",     fsck_msdos_main },
-    { "newfs_msdos",    newfs_msdos_main },
-    { "pigz",           pigz_main },
-    { "gzip",           pigz_main },
-    { "gunzip",         pigz_main },
-    { "zip",            minizip_main },
-    { "unzip",          miniunz_main },
-    { "start",          start_main },
-    { "stop",           stop_main },
-    { "sh",             mksh_main },
-    { "vdc",            vdc_main },
-    { NULL, NULL },
-};
+int mkfs_f2fs_main(int argc, char** argv);
+int fsck_f2fs_main(int argc, char** argv);
 
-struct recovery_cmd get_command(char* command) {
-    int i;
+int fsck_msdos_main(int argc, char** argv);
 
-    for (i = 0; recovery_cmds[i].name; i++) {
-        if (strcmp(command, recovery_cmds[i].name) == 0)
-            break;
-    }
+int mkfs_exfat_main(int argc, char** argv);
+int fsck_exfat_main(int argc, char** argv);
 
-    return recovery_cmds[i];
+int mkfs_ntfs_main(int argc, char** argv);
+int fsck_ntfs_main(int argc, char** argv);
+int mount_ntfs_main(int argc, char** argv);
+
+int sgdisk_main(int argc, char** argv);
+
+#ifdef __cplusplus
 }
+#endif
+
 #endif
