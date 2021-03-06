@@ -319,7 +319,7 @@ do
                 data)
                     for entry in /data/* /data/.writable_image /data/.factory_wipe; do
                         if [ "$USE_SYSTEM_PARTITION" -eq 0 ];then
-                            if [[ ( "$entry" == "/data/ubuntu.img" ) || ( "$entry" == "/data/rootfs.img" ) || ( "$entry" == "/data/system.img" ) ]]; then
+                            if [ "$entry" == "/data/system.img" -o "$entry" == "/data/ubuntu.img" -o "$entry" == "/data/rootfs.img" ]; then
                                     continue
                             fi
                         fi
