@@ -266,7 +266,7 @@ if [ -e /etc/system-image/archive-master.tar.xz ]; then
 fi
 
 # Initialize recovery SWAP
-## Without a swap some systems will fail to install the ubuntu (due its size)
+## Without a swap some systems will fail to install the ubuntu rootfs (due its size)
 if [ ! -e /cache/recovery/SWAP.img ]; then
     # Determine size based on device maintainer preference, set in the kernel
     # cmdline. This falls back to using 32MB for the total swap file size.
