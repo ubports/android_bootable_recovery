@@ -307,7 +307,7 @@ do
     set -- $line
     case "$1" in
         format)
-            echo "Formating: $2"
+            echo "Formatting: $2"
             case "$2" in
                 system)
                     FULL_IMAGE=1
