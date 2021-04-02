@@ -28,7 +28,7 @@ LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
 LOCAL_MODULE := libfusesideload
 LOCAL_STATIC_LIBRARIES := \
-    libcrypto \
+    libcrypto_static \
     libbase
 include $(BUILD_STATIC_LIBRARY)
 
@@ -58,13 +58,10 @@ endif
 LOCAL_MODULE := librecovery
 LOCAL_STATIC_LIBRARIES := \
     libminui \
-    libotautil \
-    libvintf_recovery \
-    libcrypto_utils \
-    libcrypto \
+    libcrypto_utils_static \
+    libcrypto_static \
     libbase \
     libziparchive \
-    libvolume_manager \
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -169,48 +166,32 @@ LOCAL_C_INCLUDES += \
 
 # Health HAL dependency
 LOCAL_STATIC_LIBRARIES := \
-    android.hardware.health@2.0-impl \
-    android.hardware.health@2.0 \
-    android.hardware.health@1.0 \
-    android.hardware.health@1.0-convert \
-    libhealthstoragedefault \
-    libhidltransport \
-    libhidlbase \
-    libhwbinder_noltopgo \
-    libvndksupport \
     libbatterymonitor \
     libbootloader_message
 
 LOCAL_STATIC_LIBRARIES += \
-    libmksh_driver \
+    libmksh_static \
     librecovery \
     libverifier \
     libbootloader_message \
     libfs_mgr \
-    libext4_utils \
+    libext4_utils_static \
     libext2_blkid \
     libext2_uuid \
-    libsparse \
+    libsparse_static \
     libreboot \
     libziparchive \
-    libvolume_manager \
     libminipigz_static \
-    libzopfli_static \
+    libzopfli \
     libminizip_static \
     libminiunz_static \
-    libotautil \
     libmounts \
     libminadbd \
-    libasyncio \
     libfusesideload \
     libminui \
     libpng \
-    libcrypto_utils \
-    libcrypto \
-    libvintf_recovery \
-    libvintf \
-    libhidl-gen-utils \
-    libtinyxml2 \
+    libcrypto_utils_static \
+    libcrypto_static \
     libbase \
     libutils \
     libcutils \
@@ -219,41 +200,14 @@ LOCAL_STATIC_LIBRARIES += \
     libz \
     libcrecovery
 
-LOCAL_WHOLE_STATIC_LIBRARIES += \
-    libawk_main
-
 # Libraries for FS tools
 LOCAL_WHOLE_STATIC_LIBRARIES += \
     libext2fs \
-    libe2fsck \
-    libmke2fs \
-    libresize2fs \
     libtune2fs \
-    libsparse
-
-LOCAL_WHOLE_STATIC_LIBRARIES += \
-    libe2fsdroid
-
-LOCAL_WHOLE_STATIC_LIBRARIES += \
-    libf2fs \
-    libf2fs_fsck \
-    libf2fs_mkfs
+    libsparse_static
 
 LOCAL_WHOLE_STATIC_LIBRARIES += \
     libfsck_msdos
-
-LOCAL_WHOLE_STATIC_LIBRARIES += \
-    libexfat \
-    libexfat_mkfs \
-    libexfat_fsck
-
-LOCAL_WHOLE_STATIC_LIBRARIES += \
-    libfuse-lite \
-    libntfs-3g \
-    libntfs_utils \
-    libntfs_fsck \
-    libntfs_mkfs \
-    libntfs_mount
 
 LOCAL_WHOLE_STATIC_LIBRARIES += \
     libsgdisk_static
@@ -355,17 +309,17 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS += -DMINIVOLD
 LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_STATIC_LIBRARIES += \
-    libext4_utils \
+    libext4_utils_static \
     libext2_blkid \
     libext2_uuid \
-    libsparse \
+    libsparse_static \
     libmounts \
     libz \
     libminadbd \
     libminui \
     libfs_mgr \
     libtar \
-    libcrypto \
+    libcrypto_static \
     libbase \
     libcutils \
     libutils \
@@ -456,9 +410,8 @@ LOCAL_SRC_FILES := \
     asn1_decoder.cpp \
     verifier.cpp
 LOCAL_STATIC_LIBRARIES := \
-    libotautil \
-    libcrypto_utils \
-    libcrypto \
+    libcrypto_utils_static \
+    libcrypto_static \
     libbase
 LOCAL_CFLAGS := -Wall -Werror
 include $(BUILD_STATIC_LIBRARY)
@@ -528,14 +481,14 @@ LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/etc/system-image
 LOCAL_SRC_FILES := archive-master.tar.xz.asc
 include $(BUILD_PREBUILT)
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := busybox_recovery
-LOCAL_SRC_FILES := ../../external/busybox/busybox
-LOCAL_MODULE_TAGS := optional eng debug
-LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
-LOCAL_MODULE_STEM := busybox
-LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
-include $(BUILD_PREBUILT)
+#include $(CLEAR_VARS)
+#LOCAL_MODULE := busybox_recovery
+#LOCAL_SRC_FILES := ../../external/busybox/busybox
+#LOCAL_MODULE_TAGS := optional eng debug
+#LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+#LOCAL_MODULE_STEM := busybox
+#LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+#include $(BUILD_PREBUILT)
 
 include \
     $(LOCAL_PATH)/boot_control/Android.mk \
@@ -545,4 +498,5 @@ include \
     $(LOCAL_PATH)/tools/Android.mk \
     $(LOCAL_PATH)/updater/Android.mk \
     $(LOCAL_PATH)/update_verifier/Android.mk \
-    $(LOCAL_PATH)/libcrecovery/Android.mk
+    $(LOCAL_PATH)/libcrecovery/Android.mk \
+    $(LOCAL_PATH)/bootloader_message/Android.mk

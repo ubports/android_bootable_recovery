@@ -31,7 +31,7 @@ LOCAL_MODULE := libminadbd
 LOCAL_CFLAGS := $(minadbd_cflags)
 LOCAL_C_INCLUDES := bootable/recovery system/core/adb
 LOCAL_WHOLE_STATIC_LIBRARIES := libadbd
-LOCAL_STATIC_LIBRARIES := libcrypto libbase
+LOCAL_STATIC_LIBRARIES := libcrypto_static libbase
 
 include $(BUILD_STATIC_LIBRARY)
 

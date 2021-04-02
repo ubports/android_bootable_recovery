@@ -28,8 +28,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
     libadf \
-    libdrm \
-    libsync_recovery
+    libdrm
 
 LOCAL_STATIC_LIBRARIES := \
     libpng \
