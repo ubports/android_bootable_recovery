@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "minadbd.h"
-
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>

@@ -17,7 +17,6 @@
 #ifndef _RECOVERY_VOLCLIENT_H
 #define _RECOVERY_VOLCLIENT_H
 
-#include <volume_manager/VolumeManager.h>
 #include "device.h"
 
 class VolumeClient : public VolumeWatcher {

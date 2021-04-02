@@ -34,12 +34,11 @@
 #include <vector>
 
 #include <android-base/logging.h>
-#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <cryptfs.h>
 #include <cutils/fs.h>
-#include <ext4_utils/wipe.h>
+#include <wipe.h>
 #include <fs_mgr.h>
 
 #include "mounts.h"
@@ -76,12 +75,11 @@ Volume* get_device_volumes() {
 Volume* get_entry_for_mount_point_detect_fs(const std::string&);
 
 void load_volume_table() {
-  fstab = fs_mgr_read_fstab_default();
+  fstab = fs_mgr_read_fstab("/etc/recovery.fstab");
   if (!fstab) {
-    LOG(ERROR) << "Failed to read default fstab";
+    LOG(ERROR) << "failed to read /etc/recovery.fstab";
     return;
   }
-
   int ret = fs_mgr_add_entry(fstab, "/tmp", "ramdisk", "ramdisk");
   if (ret == -1) {
     LOG(ERROR) << "Failed to add /tmp entry to fstab";
@@ -119,11 +117,11 @@ void load_volume_table() {
 }
 
 Volume* volume_for_mount_point(const std::string& mount_point) {
-  return fs_mgr_get_entry_for_mount_point(fstab, mount_point);
+  return fs_mgr_get_entry_for_mount_point(fstab, mount_point.c_str());
 }
 
 Volume* get_entry_for_mount_point_detect_fs(const std::string& path) {
-  Volume* rec = fs_mgr_get_entry_for_mount_point(fstab, path);
+  Volume* rec = fs_mgr_get_entry_for_mount_point(fstab, path.c_str());
 
   if (rec == nullptr) {
     return rec;
@@ -139,7 +137,7 @@ Volume* get_entry_for_mount_point_detect_fs(const std::string& path) {
 
     Volume* fetched_rec = rec;
     while (rec != nullptr && strcmp(rec->fs_type, detected_fs_type) != 0) {
-      rec = fs_mgr_get_entry_for_mount_point_after(rec, fstab, path);
+      rec = fs_mgr_get_entry_for_mount_point_after(rec, fstab, path.c_str());
     }
 
     if (rec == nullptr) {
@@ -397,17 +395,7 @@ int format_volume(const char* volume, const char* directory) {
       "/sbin/mke2fs_static", "-F", "-t", "ext4", "-b", std::to_string(kBlockSize),
     };
 
-    int raid_stride = v->logical_blk_size / kBlockSize;
-    int raid_stripe_width = v->erase_blk_size / kBlockSize;
     // stride should be the max of 8KB and logical block size
-    if (v->logical_blk_size != 0 && v->logical_blk_size < 8192) {
-      raid_stride = 8192 / kBlockSize;
-    }
-    if (v->erase_blk_size != 0 && v->logical_blk_size != 0) {
-      mke2fs_args.push_back("-E");
-      mke2fs_args.push_back(
-          android::base::StringPrintf("stride=%d,stripe-width=%d", raid_stride, raid_stripe_width));
-    }
     mke2fs_args.push_back(v->blk_device);
     if (length != 0) {
       mke2fs_args.push_back(std::to_string(length / kBlockSize));

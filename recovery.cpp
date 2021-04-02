@@ -43,21 +43,20 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
-#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <bootloader_message/bootloader_message.h>
 #include <cutils/android_reboot.h>
 #include <cutils/properties.h> /* for property_list */
-#include <health2/Health.h>
 #include <private/android_filesystem_config.h> /* for AID_SYSTEM */
 #include <private/android_logger.h>            /* private pmsg functions */
 #include <selinux/android.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
-#include <volume_manager/VolumeManager.h>
 #include <ziparchive/zip_archive.h>
+
+#include <healthd/BatteryMonitor.h>
 
 #include "adb_install.h"
 #include "common.h"
@@ -67,8 +66,6 @@
 #include "install.h"
 #include "minadbd/minadbd.h"
 #include "minui/minui.h"
-#include "otautil/DirUtil.h"
-#include "otautil/error_code.h"
 #include "roots.h"
 #include "rotate_logs.h"
 #include "screen_ui.h"
@@ -324,12 +321,14 @@ static bool file_copy(const char* src, const char* dst) {
 }
 
 bool is_ro_debuggable() {
-    return android::base::GetBoolProperty("ro.debuggable", false);
+    char value[PROPERTY_VALUE_MAX+1];
+    return (property_get("ro.debuggable", value, NULL) == 1 && value[0] == '1');
 }
 
 bool reboot(const std::string& command) {
     std::string cmd = command;
-    if (android::base::GetBoolProperty("ro.boot.quiescent", false)) {
+    char value[PROPERTY_VALUE_MAX+1];
+    if (property_get("ro.boot.quiescent", value, "0") == 1 && value[0] == '1') {
         cmd += ",quiescent";
     }
     return android::base::SetProperty(ANDROID_RB_PROPERTY, cmd);
@@ -1108,11 +1107,13 @@ static bool check_wipe_package(size_t wipe_package_size) {
             ota_type_matched = true;
         } else if (android::base::StartsWith(line, "pre-device=")) {
             std::string device_type = line.substr(strlen("pre-device="));
-            std::string real_device_type = android::base::GetProperty("ro.build.product", "");
+            char real_device_type[PROPERTY_VALUE_MAX];
+            property_get("ro.build.product", real_device_type, "");
             device_type_matched = (device_type == real_device_type);
         } else if (android::base::StartsWith(line, "serialno=")) {
             std::string serial_no = line.substr(strlen("serialno="));
-            std::string real_serial_no = android::base::GetProperty("ro.serialno", "");
+            char real_serial_no[PROPERTY_VALUE_MAX];
+            property_get("ro.serialno", real_serial_no, "");
             has_serial_number = true;
             serial_number_matched = (serial_no == real_serial_no);
         }
@@ -1479,7 +1480,8 @@ static Device::BuiltinAction prompt_and_wait(Device* device, int status) {
         // For a system image built with the root directory (i.e. system_root_image == "true"), we
         // mount it to /system_root, and symlink /system to /system_root/system to make adb shell
         // work (the symlink is created through the build system). (Bug: 22855115)
-        if (android::base::GetBoolProperty("ro.build.system_root_image", false)) {
+        char value[PROPERTY_VALUE_MAX+1];
+        if (property_get("ro.build.system_root_image", value, "0") == 1 && value[0] == '1') {
           if (ensure_path_mounted_at("/", "/system_root") != -1) {
             ui->Print("Mounted /system.\n");
           }
@@ -1539,76 +1541,56 @@ void UiLogger(android::base::LogId /* id */, android::base::LogSeverity severity
 }
 
 static bool is_battery_ok() {
-  using android::hardware::health::V1_0::BatteryStatus;
-  using android::hardware::health::V2_0::Result;
-  using android::hardware::health::V2_0::toString;
-  using android::hardware::health::V2_0::implementation::Health;
+    struct healthd_config healthd_config = {
+            .batteryStatusPath = android::String8(android::String8::kEmptyString),
+            .batteryHealthPath = android::String8(android::String8::kEmptyString),
+            .batteryPresentPath = android::String8(android::String8::kEmptyString),
+            .batteryCapacityPath = android::String8(android::String8::kEmptyString),
+            .batteryVoltagePath = android::String8(android::String8::kEmptyString),
+            .batteryTemperaturePath = android::String8(android::String8::kEmptyString),
+            .batteryTechnologyPath = android::String8(android::String8::kEmptyString),
+            .batteryCurrentNowPath = android::String8(android::String8::kEmptyString),
+            .batteryCurrentAvgPath = android::String8(android::String8::kEmptyString),
+            .batteryChargeCounterPath = android::String8(android::String8::kEmptyString),
+            .batteryFullChargePath = android::String8(android::String8::kEmptyString),
+            .batteryCycleCountPath = android::String8(android::String8::kEmptyString),
+            .energyCounter = NULL,
+            .boot_min_cap = 0,
+            .screen_on = NULL
+    };
+    healthd_board_init(&healthd_config);
 
-  struct healthd_config healthd_config = {
-    .batteryStatusPath = android::String8(android::String8::kEmptyString),
-    .batteryHealthPath = android::String8(android::String8::kEmptyString),
-    .batteryPresentPath = android::String8(android::String8::kEmptyString),
-    .batteryCapacityPath = android::String8(android::String8::kEmptyString),
-    .batteryVoltagePath = android::String8(android::String8::kEmptyString),
-    .batteryTemperaturePath = android::String8(android::String8::kEmptyString),
-    .batteryTechnologyPath = android::String8(android::String8::kEmptyString),
-    .batteryCurrentNowPath = android::String8(android::String8::kEmptyString),
-    .batteryCurrentAvgPath = android::String8(android::String8::kEmptyString),
-    .batteryChargeCounterPath = android::String8(android::String8::kEmptyString),
-    .batteryFullChargePath = android::String8(android::String8::kEmptyString),
-    .batteryCycleCountPath = android::String8(android::String8::kEmptyString),
-    .energyCounter = NULL,
-    .boot_min_cap = 0,
-    .screen_on = NULL
-  };
+    android::BatteryMonitor monitor;
+    monitor.init(&healthd_config);
 
-  auto health =
-      android::hardware::health::V2_0::implementation::Health::initInstance(&healthd_config);
-
-  int wait_second = 0;
-  while (true) {
-    auto charge_status = BatteryStatus::UNKNOWN;
-    health
-        ->getChargeStatus([&charge_status](auto res, auto out_status) {
-          if (res == Result::SUCCESS) {
-            charge_status = out_status;
-          }
-        })
-        .isOk();  // should not have transport error
-
-    // Treat unknown status as charged.
-    bool charged = (charge_status != BatteryStatus::DISCHARGING &&
-                    charge_status != BatteryStatus::NOT_CHARGING);
-
-    Result res = Result::UNKNOWN;
-    int32_t capacity = INT32_MIN;
-    health
-        ->getCapacity([&res, &capacity](auto out_res, auto out_capacity) {
-          res = out_res;
-          capacity = out_capacity;
-        })
-        .isOk();  // should not have transport error
-
-    ui_print("charge_status %d, charged %d, status %s, capacity %" PRId32 "\n", charge_status,
-             charged, toString(res).c_str(), capacity);
-    // At startup, the battery drivers in devices like N5X/N6P take some time to load
-    // the battery profile. Before the load finishes, it reports value 50 as a fake
-    // capacity. BATTERY_READ_TIMEOUT_IN_SEC is set that the battery drivers are expected
-    // to finish loading the battery profile earlier than 10 seconds after kernel startup.
-    if (res == Result::SUCCESS && capacity == 50) {
-      if (wait_second < BATTERY_READ_TIMEOUT_IN_SEC) {
-        sleep(1);
-        wait_second++;
-        continue;
-      }
-    }
-    // If we can't read battery percentage, it may be a device without battery. In this
-    // situation, use 100 as a fake battery percentage.
-    if (res != Result::SUCCESS) {
-      capacity = 100;
-    }
-    return (charged && capacity >= BATTERY_WITH_CHARGER_OK_PERCENTAGE) ||
-           (!charged && capacity >= BATTERY_OK_PERCENTAGE);
+    int wait_second = 0;
+    while (true) {
+        int charge_status = monitor.getChargeStatus();
+        // Treat unknown status as charged.
+        bool charged = (charge_status != android::BATTERY_STATUS_DISCHARGING &&
+                        charge_status != android::BATTERY_STATUS_NOT_CHARGING);
+        android::BatteryProperty capacity;
+        android::status_t status = monitor.getProperty(android::BATTERY_PROP_CAPACITY, &capacity);
+        ui_print("charge_status %d, charged %d, status %d, capacity %lld\n", charge_status,
+                 charged, status, capacity.valueInt64);
+        // At startup, the battery drivers in devices like N5X/N6P take some time to load
+        // the battery profile. Before the load finishes, it reports value 50 as a fake
+        // capacity. BATTERY_READ_TIMEOUT_IN_SEC is set that the battery drivers are expected
+        // to finish loading the battery profile earlier than 10 seconds after kernel startup.
+        if (status == 0 && capacity.valueInt64 == 50) {
+            if (wait_second < BATTERY_READ_TIMEOUT_IN_SEC) {
+                sleep(1);
+                wait_second++;
+                continue;
+            }
+        }
+        // If we can't read battery percentage, it may be a device without battery. In this
+        // situation, use 100 as a fake battery percentage.
+        if (status != 0) {
+            capacity.valueInt64 = 100;
+        }
+        return (charged && capacity.valueInt64 >= BATTERY_WITH_CHARGER_OK_PERCENTAGE) ||
+                (!charged && capacity.valueInt64 >= BATTERY_OK_PERCENTAGE);
     }
 }
 

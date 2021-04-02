@@ -24,7 +24,6 @@
 #include <vector>
 
 #include <android-base/file.h>
-#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <fs_mgr.h>

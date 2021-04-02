@@ -61,12 +61,8 @@ struct bootloader_message {
     // stage string (for multistage packages) and possible future
     // expansion.
     char stage[32];
-
-    // The 'reserved' field used to be 224 bytes when it was initially
-    // carved off from the 1024-byte recovery field. Bump it up to
-    // 1184-byte so that the entire bootloader_message struct rounds up
-    // to 2048-byte.
-    char reserved[1184];
+    char slot_suffix[32];
+    char reserved[1152];
 };
 
 /**
@@ -99,11 +95,10 @@ static_assert(sizeof(struct bootloader_message) == 2048,
  */
 struct bootloader_message_ab {
     struct bootloader_message message;
-    char slot_suffix[32];
     char update_channel[128];
 
     // Round up the entire struct to 4096-byte.
-    char reserved[1888];
+    char reserved[1920];
 };
 
 /**
@@ -165,7 +160,7 @@ struct bootloader_control {
 
 #if (__STDC_VERSION__ >= 201112L) || defined(__cplusplus)
 static_assert(sizeof(struct bootloader_control) ==
-              sizeof(((struct bootloader_message_ab *)0)->slot_suffix),
+              sizeof(((struct bootloader_message *)0)->slot_suffix),
               "struct bootloader_control has wrong size");
 #endif
 

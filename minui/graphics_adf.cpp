@@ -24,7 +24,6 @@
 #include <unistd.h>
 
 #include <adf/adf.h>
-#include <sync/sync.h>
 
 #include "minui/minui.h"
 
@@ -149,22 +148,6 @@ GRSurface* MinuiBackendAdf::Init() {
   Blank(false);
 
   return ret;
-}
-
-void MinuiBackendAdf::Sync(GRSurfaceAdf* surf) {
-  static constexpr unsigned int warningTimeout = 3000;
-
-  if (surf == nullptr) return;
-
-  if (surf->fence_fd >= 0) {
-    int err = sync_wait(surf->fence_fd, warningTimeout);
-    if (err < 0) {
-      perror("adf sync fence wait error\n");
-    }
-
-    close(surf->fence_fd);
-    surf->fence_fd = -1;
-  }
 }
 
 GRSurface* MinuiBackendAdf::Flip() {

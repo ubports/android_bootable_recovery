@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 
-#include <log/log_id.h>
+#include <android/log.h>
 
 static constexpr int KEEP_LOG_COUNT = 10;
 
