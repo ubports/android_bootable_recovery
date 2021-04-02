@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
+ * Copyright (C) 2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,158 +21,278 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include <string>
+#include <vector>
+
 #include "ui.h"
-#include "minui/minui.h"
+
+#define MAX_MENU_ITEMS 32
+
+// From minui/minui.h.
+struct GRSurface;
+
+class ScreenMenuItem {
+ public:
+  ScreenMenuItem() : icon_(nullptr), icon_sel_(nullptr) {}
+  explicit ScreenMenuItem(const MenuItem& mi)
+      : text_(mi.text()),
+        icon_name_(mi.icon_name()),
+        icon_(nullptr),
+        icon_name_sel_(mi.icon_name_sel()),
+        icon_sel_(nullptr) {}
+  ~ScreenMenuItem();
+
+  const std::string& text() const {
+    return text_;
+  }
+  GRSurface* icon();
+  GRSurface* icon_sel();
+
+ private:
+  std::string text_;
+  std::string icon_name_;
+  GRSurface* icon_;
+  std::string icon_name_sel_;
+  GRSurface* icon_sel_;
+};
+typedef std::vector<ScreenMenuItem> ScreenMenuItemVector;
 
 // Implementation of RecoveryUI appropriate for devices with a screen
 // (shows an icon + a progress bar, text logging, menu, etc.)
 class ScreenRecoveryUI : public RecoveryUI {
-  public:
-    ScreenRecoveryUI();
+ public:
+  enum UIElement {
+    STATUSBAR,
+    HEADER,
+    MENU,
+    MENU_SEL_BG,
+    MENU_SEL_BG_ACTIVE,
+    MENU_SEL_FG,
+    LOG,
+    TEXT_FILL,
+    INFO
+  };
 
-    void Init();
-    void SetLocale(const char* locale);
+  ScreenRecoveryUI();
 
-    // overall recovery state ("background image")
-    void SetBackground(Icon icon);
-    void SetSystemUpdateText(bool security_update);
+  bool Init(const std::string& locale) override;
+  void Stop() override;
 
-    // progress indicator
-    void SetProgressType(ProgressType type) override;
-    void ShowProgress(float portion, float seconds) override;
-    void SetProgress(float fraction) override;
+  // overall recovery state ("background image")
+  void SetBackground(Icon icon) override;
+  void SetSystemUpdateText(bool security_update) override;
 
-    void SetStage(int current, int max) override;
+  // progress indicator
+  void SetProgressType(ProgressType type) override;
+  void ShowProgress(float portion, float seconds) override;
+  void SetProgress(float fraction) override;
 
-    // text log
-    void ShowText(bool visible) override;
-    bool IsTextVisible() override;
-    bool WasTextEverVisible() override;
+  void SetStage(int current, int max) override;
 
-    // printing messages
-    void Print(const char* fmt, ...) __printflike(2, 3);
-    void PrintOnScreenOnly(const char* fmt, ...) __printflike(2, 3);
-    void ShowFile(const char* filename);
+  // text log
+  void ShowText(bool visible) override;
+  bool IsTextVisible() override;
+  bool WasTextEverVisible() override;
+  void UpdateScreenOnPrint(bool update) override {
+    update_screen_on_print = update;
+  }
 
-    // menu display
-    void StartMenu(const char* const * headers, const char* const * items,
-                   int initial_selection);
-    int SelectMenu(int sel);
-    void EndMenu();
+  // printing messages
+  void Print(const char* fmt, ...) override __printflike(2, 3);
+  void PrintOnScreenOnly(const char* fmt, ...) override __printflike(2, 3);
+  int ShowFile(const char* filename) override;
 
-    void KeyLongPress(int);
+  // menu display
+  void StartMenu(bool is_main, menu_type_t type, const char* const* headers,
+                 const MenuItemVector& items, int initial_selection) override;
+  int SelectMenu(int sel) override;
+  int SelectMenu(const Point& point) override;
+  int ScrollMenu(int updown) override;
+  void EndMenu() override;
 
-    void Redraw();
+  bool MenuShowing() const {
+    return show_menu;
+  }
+  bool MenuScrollable() const {
+    return (menu_type_ == MT_LIST);
+  }
+  int MenuItemStart() const {
+    return menu_start_y_;
+  }
+  int MenuItemHeight() const {
+    return (3 * menu_char_height_);
+  }
 
-    enum UIElement {
-        HEADER, MENU, MENU_SEL_BG, MENU_SEL_BG_ACTIVE, MENU_SEL_FG, LOG, TEXT_FILL, INFO
-    };
-    void SetColor(UIElement e);
+  void KeyLongPress(int) override;
 
-  protected:
-    Icon currentIcon;
+  void Redraw() override;
 
-    const char* locale;
+  void SetColor(UIElement e) const;
 
-    // The scale factor from dp to pixels. 1.0 for mdpi, 4.0 for xxxhdpi.
-    float density_;
-    // The layout to use.
-    int layout_;
+  // Check the background text image. Use volume up/down button to cycle through the locales
+  // embedded in the png file, and power button to go back to recovery main menu.
+  void CheckBackgroundTextImages(const std::string& saved_locale);
 
-    GRSurface* error_icon;
+ protected:
+  // The margin that we don't want to use for showing texts (e.g. round screen, or screen with
+  // rounded corners).
+  const int kMarginWidth;
+  const int kMarginHeight;
 
-    GRSurface* erasing_text;
-    GRSurface* error_text;
-    GRSurface* installing_text;
-    GRSurface* no_command_text;
+  // Number of frames per sec (default: 30) for both parts of the animation.
+  const int kAnimationFps;
 
-    GRSurface** introFrames;
-    GRSurface** loopFrames;
+  // The scale factor from dp to pixels. 1.0 for mdpi, 4.0 for xxxhdpi.
+  const float kDensity;
 
-    GRSurface* progressBarEmpty;
-    GRSurface* progressBarFill;
-    GRSurface* stageMarkerEmpty;
-    GRSurface* stageMarkerFill;
+  virtual bool InitTextParams();
 
-    ProgressType progressBarType;
+  virtual void draw_background_locked();
+  virtual void draw_foreground_locked(int& y);
+  virtual void draw_statusbar_locked();
+  virtual void draw_header_locked(int& y);
+  virtual void draw_text_menu_locked(int& y);
+  virtual void draw_grid_menu_locked(int& y);
+  virtual void draw_screen_locked();
+  virtual void update_screen_locked();
+  virtual void update_progress_locked();
 
-    float progressScopeStart, progressScopeSize, progress;
-    double progressScopeTime, progressScopeDuration;
+  GRSurface* GetCurrentFrame() const;
+  GRSurface* GetCurrentText() const;
 
-    // true when both graphics pages are the same (except for the progress bar).
-    bool pagesIdentical;
+  static void* ProgressThreadStartRoutine(void* data);
+  void ProgressThreadLoop();
 
-    size_t text_cols_, text_rows_;
+  virtual int ShowFile(FILE*);
+  virtual void PrintV(const char*, bool, va_list);
+  void NewLine();
+  void PutChar(char);
+  void ClearText();
 
-    // Log text overlay, displayed when a magic key is pressed.
-    char** text_;
-    size_t text_col_, text_row_, text_top_;
+  void LoadAnimation();
+  void LoadBitmap(const char* filename, GRSurface** surface);
+  void FreeBitmap(GRSurface* surface);
+  void LoadLocalizedBitmap(const char* filename, GRSurface** surface);
 
-    bool show_text;
-    bool show_text_ever;   // has show_text ever been true?
+  int PixelsFromDp(int dp) const;
+  virtual int GetAnimationBaseline() const;
+  virtual int GetProgressBaseline() const;
+  virtual int GetTextBaseline() const;
 
-    char** menu_;
-    const char* const* menu_headers_;
-    bool show_menu;
-    int menu_items, menu_sel;
+  // Returns pixel width of draw buffer.
+  virtual int ScreenWidth() const;
+  // Returns pixel height of draw buffer.
+  virtual int ScreenHeight() const;
 
-    // An alternate text screen, swapped with 'text_' when we're viewing a log file.
-    char** file_viewer_text_;
+  // Draws a highlight bar at (x, y) - (x + width, y + height).
+  virtual void DrawHighlightBar(int x, int y, int width, int height) const;
+  // Draws a horizontal rule at Y. Returns the offset it should be moving along Y-axis.
+  virtual int DrawHorizontalRule(int y) const;
+  // Draws a line of text. Returns the offset it should be moving along Y-axis.
+  virtual int DrawTextLine(int x, int y, const char* line, bool bold) const;
+  // Draws surface portion (sx, sy, w, h) at screen location (dx, dy).
+  virtual void DrawSurface(GRSurface* surface, int sx, int sy, int w, int h, int dx, int dy) const;
+  // Draws rectangle at (x, y) - (x + w, y + h).
+  virtual void DrawFill(int x, int y, int w, int h) const;
+  // Draws given surface (surface->pixel_bytes = 1) as text at (x, y).
+  virtual void DrawTextIcon(int x, int y, GRSurface* surface) const;
+  // Draws multiple text lines. Returns the offset it should be moving along Y-axis.
+  int DrawTextLines(int x, int y, const char* const* lines) const;
+  // Similar to DrawTextLines() to draw multiple text lines, but additionally wraps long lines.
+  // Returns the offset it should be moving along Y-axis.
+  int DrawWrappedTextLines(int x, int y, const char* const* lines) const;
 
-    pthread_t progress_thread_;
+  Icon currentIcon;
 
-    // Number of intro frames and loop frames in the animation.
-    size_t intro_frames;
-    size_t loop_frames;
+  // The layout to use.
+  int layout_;
 
-    size_t current_frame;
-    bool intro_done;
+  GRSurface* logo_image;
+  GRSurface* ic_back;
+  GRSurface* ic_back_sel;
 
-    // Number of frames per sec (default: 30) for both parts of the animation.
-    int animation_fps;
+  GRSurface* error_icon;
 
-    int stage, max_stage;
+  GRSurface* erasing_text;
+  GRSurface* error_text;
+  GRSurface* installing_text;
+  GRSurface* no_command_text;
 
-    int char_width_;
-    int char_height_;
-    pthread_mutex_t updateMutex;
-    bool rtl_locale;
+  GRSurface** introFrames;
+  GRSurface** loopFrames;
 
-    virtual void InitTextParams();
+  GRSurface* progressBarEmpty;
+  GRSurface* progressBarFill;
+  GRSurface* stageMarkerEmpty;
+  GRSurface* stageMarkerFill;
 
-    virtual void draw_background_locked();
-    virtual void draw_foreground_locked();
-    bool rainbow;
-    int wrap_count;
-    virtual void draw_screen_locked();
-    virtual void update_screen_locked();
-    virtual void update_progress_locked();
+  ProgressType progressBarType;
 
-    GRSurface* GetCurrentFrame();
-    GRSurface* GetCurrentText();
+  float progressScopeStart, progressScopeSize, progress;
+  double progressScopeTime, progressScopeDuration;
 
-    static void* ProgressThreadStartRoutine(void* data);
-    void ProgressThreadLoop();
+  // true when both graphics pages are the same (except for the progress bar).
+  bool pagesIdentical;
 
-    virtual void ShowFile(FILE*);
-    virtual void PrintV(const char*, bool, va_list);
-    void PutChar(char);
-    void ClearText();
+  size_t text_cols_, text_rows_;
 
-    void LoadAnimation();
-    void LoadBitmap(const char* filename, GRSurface** surface);
-    void LoadLocalizedBitmap(const char* filename, GRSurface** surface);
+  // Log text overlay, displayed when a magic key is pressed.
+  char** text_;
+  size_t text_col_, text_row_;
 
-    int PixelsFromDp(int dp);
-    virtual int GetAnimationBaseline();
-    virtual int GetProgressBaseline();
-    virtual int GetTextBaseline();
+  bool show_text;
+  bool show_text_ever;  // has show_text ever been true?
+  bool previous_row_ended;
+  bool update_screen_on_print;
 
-    void DrawHorizontalRule(int* y);
-    void DrawTextLine(int x, int* y, const char* line, bool bold);
-    void DrawTextLines(int x, int* y, const char* const* lines);
+  std::vector<std::string> menu_;
+  bool menu_is_main_;
+  menu_type_t menu_type_;
+  const char* const* menu_headers_;
+  ScreenMenuItemVector menu_items_;
+  int menu_start_y_;
+  bool show_menu;
+  int menu_show_start;
+  int menu_show_count;
+  int menu_sel;
 
-    void OMGRainbows();
+  // An alternate text screen, swapped with 'text_' when we're viewing a log file.
+  char** file_viewer_text_;
+
+  pthread_t progress_thread_;
+
+  // Number of intro frames and loop frames in the animation.
+  size_t intro_frames;
+  size_t loop_frames;
+
+  size_t current_frame;
+  bool intro_done;
+
+  int stage, max_stage;
+
+  int char_width_;
+  int char_height_;
+
+  int menu_char_width_;
+  int menu_char_height_;
+
+  // The locale that's used to show the rendered texts.
+  std::string locale_;
+  bool rtl_locale_;
+
+  pthread_mutex_t updateMutex;
+
+ private:
+  bool rainbow;
+  int wrap_count;
+
+  void SetLocale(const std::string&);
+
+  // Display the background texts for "erasing", "error", "no_command" and "installing" for the
+  // selected locale.
+  void SelectAndShowBackgroundText(const std::vector<std::string>& locales_entries, size_t sel);
+
+  void OMGRainbows();
 };
 
 #endif  // RECOVERY_UI_H

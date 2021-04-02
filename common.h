@@ -17,27 +17,25 @@
 #ifndef RECOVERY_COMMON_H
 #define RECOVERY_COMMON_H
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
 
-#define LOGE(...) ui_print("E:" __VA_ARGS__)
-#define LOGW(...) fprintf(stdout, "W:" __VA_ARGS__)
-#define LOGI(...) fprintf(stdout, "I:" __VA_ARGS__)
+#include <string>
 
-#if 0
-#define LOGV(...) fprintf(stdout, "V:" __VA_ARGS__)
-#define LOGD(...) fprintf(stdout, "D:" __VA_ARGS__)
-#else
-#define LOGV(...) do {} while (0)
-#define LOGD(...) do {} while (0)
-#endif
+// Not using the command-line defined macro here because this header could be included by
+// device-specific recovery libraries. We static assert the value consistency in recovery.cpp.
+static constexpr int kRecoveryApiVersion = 3;
 
-#define STRINGIFY(x) #x
-#define EXPAND(x) STRINGIFY(x)
+class RecoveryUI;
 
+extern RecoveryUI* ui;
 extern bool modified_flash;
-typedef struct fstab_rec Volume;
+
+// The current stage, e.g. "1/2".
+extern std::string stage;
+
+// The reason argument provided in "--reason=".
+extern const char* reason;
 
 // fopen a file, mounting volumes and making parent dirs as necessary.
 FILE* fopen_path(const char *path, const char *mode);
@@ -45,5 +43,7 @@ FILE* fopen_path(const char *path, const char *mode);
 void ui_print(const char* format, ...);
 
 bool is_ro_debuggable();
+
+bool reboot(const std::string& command);
 
 #endif  // RECOVERY_COMMON_H

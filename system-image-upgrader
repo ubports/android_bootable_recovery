@@ -43,9 +43,6 @@ check_filesystem() {
 verify_signature() {
     # $1 => validation keyring name
     # $2 => path to validate
-  #  if [ -e /etc/system-image/skip-gpg-verification ]; then
-     return 0
-  #  fi
 
     if [ ! -e $2 ]; then
         echo "File doesn't exist: $2"
@@ -86,9 +83,9 @@ install_keyring() {
     fi
 
     # Unpacking
-    TMPDIR=$(mktemp -dt -p /tmp/system-image/ tmp.XXXXXXXXXX)
+    TMPDIR=$(mktemp -d -p /tmp/system-image/ tmp.XXXXXXXXXX)
     cd $TMPDIR
-    xzcat $1 | tar --numeric-owner -xf -
+    busybox xzcat $1 | busybox tar --numeric-owner -xf -
     if [ ! -e keyring.json ] || [ ! -e keyring.gpg ]; then
         rm -Rf $TMPDIR
         echo "Invalid keyring: $1"
@@ -264,37 +261,25 @@ if [ -e /etc/system-image/archive-master.tar.xz ]; then
     install_keyring /etc/system-image/archive-master.tar.xz /etc/system-image/archive-master.tar.xz.asc
 fi
 
-# Initialize recovery SWAP
-## Without a swap some systems will fail to install the ubuntu rootfs (due its size)
-if [ ! -e /cache/recovery/SWAP.img ]; then
-    # Determine size based on device maintainer preference, set in the kernel
-    # cmdline. This falls back to using 32MB for the total swap file size.
-    if grep -q siu.swapsize= /proc/cmdline; then
-        swap_size=$(cat /proc/cmdline | sed "s/ /\n/g" | grep siu.swapsize= | awk -F "=" '{ print $2 }')
-    else
-        swap_size=32
-    fi
-    echo "Swap size: $swap_size MB"
-    dd if=/dev/zero of=/cache/recovery/SWAP.img bs=1M count=$swap_size
-    mkswap /cache/recovery/SWAP.img
-fi
-swapon /cache/recovery/SWAP.img
-
 # Check the kernel command line to see whether Ubuntu should be installed to a partition
 # or in a file that is loop mounted.
-if grep -q systempart= /proc/cmdline; then
-    USE_SYSTEM_PARTITION=1
-else
-    USE_SYSTEM_PARTITION=0
-fi
+#if grep -q systempart= /proc/cmdline; then
+#    USE_SYSTEM_PARTITION=1
+#else
+#    USE_SYSTEM_PARTITION=0
+#fi
+
+# Force usage of system partition for now, the existance of Android 9.0 devices
+# with a too small system partition is questionable at this point.
+USE_SYSTEM_PARTITION=1
 
 # However, do not use the block device name in the kernel command line, as that is not consistently
 # named in booting normal and recovery modes. Expect fstab to have a system mountpoint or use a fallback.
 if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
-    SYSTEM_PARTITION=$(grep "^[^#]" /etc/recovery.fstab | grep "/system" | cut -f 1 -d\ )
+    SYSTEM_PARTITION=$(grep "^[^#]" /etc/fstab | grep "/system_root" | cut -f 1 -d\ )
     #Fall back to emmc@android if there's no system in fstab
     if [ "$SYSTEM_PARTITION" == "" ]; then
-        SYSTEM_PARTITION = "emmc@android"
+        SYSTEM_PARTITION="emmc@android"
     fi
 fi
 
@@ -306,25 +291,32 @@ do
     set -- $line
     case "$1" in
         format)
-            echo "Formating: $2"
+            echo "Formatting: $2"
             case "$2" in
                 system)
                     FULL_IMAGE=1
+                    # Cleanup files left from halium-install
+                    rm -f /data/system.img
+                    rm -f /data/android-rootfs.img
+                    rm -f /data/rootfs.img
+                    # Delete ubuntu.img if present. Either its a leftover, or we recreate it
+                    rm -f /data/ubuntu.img
                     if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
                         echo "system partition: $SYSTEM_PARTITION"
-                        umount /system || true
-                        make_ext4fs $SYSTEM_PARTITION
+                        umount /system_root || true
+                        mkfs.ext4 $SYSTEM_PARTITION
                     else
-                        rm -f /data/rootfs.img
-                        dd if=/dev/zero of=/data/rootfs.img seek=500K bs=4096 count=0
-                        mkfs.ext2 -F /data/rootfs.img
+                        # We need to use legacy image name here, halium-boot needs this to decide file layout
+                        dd if=/dev/zero of=/data/ubuntu.img seek=500K bs=4096 count=0
+                        mkfs.ext2 -F /data/ubuntu.img
                     fi
                 ;;
 
                 data)
+                    mount /data || true
                     for entry in /data/* /data/.writable_image /data/.factory_wipe; do
-                        if [ "$USE_SYSTEM_PARTITION" -eq 0 ];then
-                            if [ "$entry" == "/data/rootfs.img" ]; then
+                        if [ "$USE_SYSTEM_PARTITION" -eq 0 ]; then
+                            if [[ ( "$entry" == "/data/ubuntu.img" ) || ( "$entry" == "/data/rootfs.img" ) || ( "$entry" == "/data/system.img" ) || ( "$entry" == "/data/android-rootfs.img" ) ]]; then
                                     continue
                             fi
                         fi
@@ -335,11 +327,24 @@ do
                             continue
                         fi
 
-                        rm -Rf $entry
+                        # If this is android-data, inspect closer as we need the
+                        # cache "partition" to stay functioning during use of the
+                        # system-image-upgrader script. It is bind mounted
+                        # and leads to premature cancellation otherwise.
+                        if [ "$entry" == "/data/android-data" ]; then
+                            for android_data_entry in /data/android-data/*; do
+                                if [ "$android_data_entry" != "/data/android-data/cache" ]; then
+                                    rm -Rf $android_data_entry
+                                fi
+                            done
+                        else
+                            rm -Rf $entry
+                        fi
                     done
                     # mtp is always enabled by default
                     usb_enable mtp
                     DATA_FORMAT=1
+                    umount /data
                 ;;
 
                 *)
@@ -432,12 +437,12 @@ do
                     if [ "$USE_SYSTEM_PARTITION" -eq 1 ];then
                         umount $SYSTEM_PARTITION || true
                         umount $SYSTEM_MOUNTPOINT || true
-                        umount /system || true
+                        umount /system_root || true
                         check_filesystem $SYSTEM_PARTITION
                         mount $SYSTEM_PARTITION "$SYSTEM_MOUNTPOINT"
                     else
-                        check_filesystem /data/rootfs.img
-                        mount -o loop /data/rootfs.img "$SYSTEM_MOUNTPOINT/"
+                        check_filesystem /data/ubuntu.img
+                        mount -o loop /data/ubuntu.img "$SYSTEM_MOUNTPOINT/"
                     fi
                 ;;
 
@@ -481,7 +486,7 @@ do
 
             # Start by removing any file listed in "removed"
             if [ "$FULL_IMAGE" != "1" ]; then
-                xzcat recovery/$2 | tar --numeric-owner -xf - removed >/dev/null 2>&1 || true
+                busybox xzcat recovery/$2 | busybox tar --numeric-owner -xf - removed >/dev/null 2>&1 || true
                 if [ -e removed ]; then
                     while read file; do
                         rm -Rf $file
@@ -491,15 +496,24 @@ do
             fi
 
             # Unpack everything else on top of the system partition
-            xzcat recovery/$2 | tar --numeric-owner -xf -
+            busybox xzcat recovery/$2 | busybox tar --numeric-owner -xf -
             rm -f removed
+
+            # WORKAROUND: fix erroneous vendor symlink
+            if [ -h "$SYSTEM_MOUNTPOINT/vendor" ]; then
+                VENDOR_SYMLINK_PATH=$(readlink $SYSTEM_MOUNTPOINT/vendor)
+                if [ "$VENDOR_SYMLINK_PATH" == "/android/system/vendor" ]; then
+                    rm $SYSTEM_MOUNTPOINT/vendor
+                    ln -s /android/vendor $SYSTEM_MOUNTPOINT/vendor
+                fi
+            fi
 
             # Move things to data
             mv data/* /data/ || true
             rm -Rf data || true
 
             # Process partition images
-            grep "^/dev" /etc/recovery.fstab | while read line; do
+            grep "^/dev" /etc/fstab | while read line; do
                 set -- $line
 
                 part=${2##/}
@@ -508,6 +522,7 @@ do
                 if [ -e partitions/${part}.img ] && [ -e $path ]; then
                     echo "Flashing ${part} at ${path}"
                     cat partitions/${part}.img > ${path}
+                    sync
                     rm partitions/${part}.img
                 fi
             done
@@ -524,10 +539,6 @@ do
     esac
 done < $COMMAND_FILE
 
-# Remove temporary SWAP
-swapoff /cache/recovery/SWAP.img
-rm -f /cache/recovery/SWAP.img
-
 # Remove the update files
 for file in $REMOVE_LIST; do
     rm -f $file
@@ -535,32 +546,15 @@ done
 
 # If a previous SWAP of 512MB is available, remove
 if [ -e /data/SWAP.img ]; then
-    swap_size=`stat /data/SWAP.img | grep Size | awk -F' ' '{print $2}'`
-    if [ "$swap_size" = "536870912" ]; then
-        echo "Removing old 512MB swap file."
-        rm -f /data/SWAP.img
-    fi
+    echo "Removing obsolete SWAP.img"
+    rm -f /data/SWAP.img
 fi
-
-# Create the SWAP image if missing
-# Here we only want a small SWAP to be created, as we found out
-# that the kernel memory manager algorithm behaves better if swap
-# is available, even if a minimal one (not to be used by the system)
-if [ ! -e /data/SWAP.img ]; then
-    echo "Creating SWAP device (32MB)."
-    dd if=/dev/zero of=/data/SWAP.img bs=4096 count=8192
-    mkswap /data/SWAP.img
-fi
-
-
 
 # Ensure we have sane permissions
 if [ "$USE_SYSTEM_PARTITION" -eq 0 ];then
-    chmod 600 /data/rootfs.img
-    chown 0:0 /data/rootfs.img
+    chmod 600 /data/ubuntu.img
+    chown 0:0 /data/ubuntu.img
 fi
-chmod 600 /data/SWAP.img
-chown 0:0 /data/SWAP.img
 
 touch /data/.last_update || true
 sync
@@ -571,4 +565,8 @@ echo "Done upgrading: $(date)" >> /cache/system-image-upgrader.log
 # else filling $HOME can make the system unusable since writable
 # files and dirs share the space with $HOME and android does not
 # reserve root space in /data
+mount /data
 tune2fs -m 5 $(grep "/data " /proc/mounts| sed -e 's/ .*$//') >> /cache/system-image-upgrader.log
+umount /data
+
+sync

@@ -26,7 +26,7 @@ extern "C" {
 
 static const char *UBUNTU_COMMAND_FILE = "/cache/recovery/ubuntu_command";
 static const char *UBUNTU_UPDATE_SCRIPT = "/sbin/system-image-upgrader";
-static const char *UBUNTU_DEBUG_FILE = "/cache/recovery/ubuntu_debug";
+//static const char *UBUNTU_DEBUG_FILE = "/cache/recovery/ubuntu_debug";
 
 //TODO: make and show "error screen" if ubpdate fails
 
