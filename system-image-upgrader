@@ -501,6 +501,11 @@ do
             xzcat recovery/$2 | tar --numeric-owner -xf -
             rm -f removed
 
+            # Check for legacy channel flag and hardlink system.img again
+            if [ -e legacy_channel ]; then
+                ln /data/ubuntu.img /data/system.img || true
+            fi
+            
             # Move things to data
             mv data/* /data/ || true
             rm -Rf data || true
