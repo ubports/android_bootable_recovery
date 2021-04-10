@@ -504,7 +504,7 @@ do
             # Check for legacy channel flag and hardlink system.img again
             if [ -e legacy_channel ]; then
                 ln /data/ubuntu.img /data/system.img || true
-                rm legacy_channel
+                rm -f legacy_channel
             fi
             
             # Move things to data
