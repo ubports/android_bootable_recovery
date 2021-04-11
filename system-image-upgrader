@@ -479,6 +479,12 @@ do
             cat recovery/$2 | unxz | tar xf -
             rm -f removed
 
+            # Check for legacy channel flag and hardlink system.img again
+            if [ -e legacy_channel ]; then
+                ln /data/ubuntu.img /data/system.img || true
+                rm -f legacy_channel
+            fi
+
             # Process partition images
             grep "^/dev" /etc/recovery.fstab | while read line; do
                 set -- $line
