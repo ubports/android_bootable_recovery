@@ -153,6 +153,10 @@ void ScreenRecoveryUI::draw_background_locked() {
     gr_clear();
 
     if (currentIcon != NONE) {
+        if (currentIcon == INSTALLING_UPDATE) {
+            gr_color(66, 66, 66, 255);
+            gr_fill(0, 0, gr_fb_width(), gr_fb_height());
+        }
         if (max_stage != -1) {
             int stage_height = gr_get_height(stageMarkerEmpty);
             int stage_width = gr_get_width(stageMarkerEmpty);
@@ -178,7 +182,7 @@ void ScreenRecoveryUI::draw_background_locked() {
 // Should only be called with updateMutex locked.
 void ScreenRecoveryUI::draw_foreground_locked() {
     if (currentIcon != NONE) {
-        gr_color(0, 0, 0, 255);
+        gr_color(66, 66, 66, 255);
         gr_clear();
         GRSurface* frame = GetCurrentFrame();
         int frame_width = gr_get_width(frame);
@@ -248,7 +252,7 @@ void ScreenRecoveryUI::SetColor(UIElement e) {
             gr_color(196, 196, 196, 255);
             break;
         case TEXT_FILL:
-            gr_color(0, 0, 0, 160);
+            gr_color(66, 66, 66, 160);
             break;
         default:
             gr_color(255, 255, 255, 255);
@@ -374,6 +378,9 @@ void ScreenRecoveryUI::OMGRainbows()
 }
 
 void ScreenRecoveryUI::ProgressThreadLoop() {
+    int loop_frame_next_blink = rand()%(120 + 1) + 30;
+    int counter = 0;
+    int blink_counter = 0;
     double interval = 1.0 / animation_fps;
     while (true) {
         double start = now();
@@ -392,7 +399,31 @@ void ScreenRecoveryUI::ProgressThreadLoop() {
                     ++current_frame;
                 }
             } else {
-                current_frame = (current_frame + 1) % loop_frames;
+                if(counter > loop_frame_next_blink) {
+                    // make Yumi close its eyes
+                    if(blink_counter < 3)
+                        current_frame = 2; // half closed
+                    if(blink_counter < 5)
+                        current_frame = 3; // full closed
+                    if(blink_counter < 7)
+                        current_frame = 4; // full closed
+                    if(blink_counter < 9)
+                        current_frame = 3; // half opened
+                    if(blink_counter >= 10) {
+                        counter = 0;
+                        blink_counter = 0;
+                        loop_frame_next_blink = rand()%(120 + 1) + 30;
+                    }
+                    else {
+                        blink_counter++;
+                    }
+                } else {
+                    current_frame = (current_frame + 1) % loop_frames;
+                    // just switch between the first two frames
+                    if(current_frame > 1)
+                        current_frame = 0;
+                    counter++;
+                }
             }
 
             redraw = true;
