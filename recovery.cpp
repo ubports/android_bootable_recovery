@@ -1660,7 +1660,7 @@ load_locale_from_cache() {
     }
 }
 
-static const char *key_src = "/data/misc/adb/adb_keys";
+static const char *key_src = "/data/android-data/misc/adb/adb_keys";
 static const char *key_dest = "/adb_keys";
 
 
