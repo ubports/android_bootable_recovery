@@ -168,7 +168,8 @@ LOCAL_ADDITIONAL_DEPENDENCIES += \
     bu_recovery \
     busybox_links \
     static_busybox \
-    static_gpg
+    static_gpg \
+    bsdtar-recovery
 
 endif
 
